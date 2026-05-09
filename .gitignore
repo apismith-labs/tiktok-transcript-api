@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+
+# Ignore generated runtime output
+sample-output/generated/
+
+# Keep example outputs if intentionally added later
+!sample-output/*.json
+!sample-output/*.jsonl
+!sample-output/*.csv
+
+node_modules/
+dist/
+build/
+target/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+*.log
