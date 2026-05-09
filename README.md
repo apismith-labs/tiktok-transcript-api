@@ -32,11 +32,14 @@ AI-assisted content workflows.
    MAX_CONCURRENCY=3
    ```
 
-3. Run a planned language example after the example implementations are added.
+3. Run a language example:
 
-   The initial scaffold includes repository configuration, sample input data,
-   and the documented Actor input model. Runnable language examples will be
-   added in follow-up steps.
+   ```bash
+   python examples/python/single_url.py
+   ```
+
+   You can also use the cURL, Node.js, Java, Go, and Rust examples listed
+   below.
 
 ## Authentication
 
@@ -99,19 +102,23 @@ Treat metadata fields as optional in production code. The exact `segments`
 object shape and field types should be verified with a real Actor run before
 building strict schemas.
 
-## Planned examples
+## Examples
 
-This repository will include examples for:
+This repository includes single-video examples for:
 
-- cURL
-- Python
-- Node.js
-- Java
-- Go
-- Rust
+| Language | Command | Directory |
+| --- | --- | --- |
+| cURL | `bash examples/curl/single-url-sync.sh` | [examples/curl/](examples/curl/) |
+| Python | `python examples/python/single_url.py` | [examples/python/](examples/python/) |
+| Node.js | `node examples/nodejs/single-url.mjs` | [examples/nodejs/](examples/nodejs/) |
+| Java | `mvn -f examples/java/pom.xml exec:java -Dexec.mainClass=com.apismith.tiktok.SingleUrl` | [examples/java/](examples/java/) |
+| Go | `cd examples/go && go run single_url.go` | [examples/go/](examples/go/) |
+| Rust | `cargo run --manifest-path examples/rust/Cargo.toml --bin single_url` | [examples/rust/](examples/rust/) |
 
-The planned examples will cover single-video validation and batch processing
-from CSV where appropriate.
+Each example reads `APIFY_TOKEN`, `APIFY_ACTOR_ID`, and `TIKTOK_VIDEO_URL` from
+the environment, calls the Actor with the minimal `videoUrl` input, prints the
+main transcript and useful metadata, and saves the full dataset response under
+`sample-output/generated/`.
 
 ## Use cases
 
@@ -130,11 +137,28 @@ from CSV where appropriate.
 │   └── .gitkeep
 ├── examples/
 │   ├── curl/
+│   │   ├── README.md
+│   │   └── single-url-sync.sh
 │   ├── go/
+│   │   ├── README.md
+│   │   ├── go.mod
+│   │   └── single_url.go
 │   ├── java/
+│   │   ├── README.md
+│   │   ├── pom.xml
+│   │   └── src/main/java/com/apismith/tiktok/SingleUrl.java
 │   ├── nodejs/
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   └── single-url.mjs
 │   ├── python/
+│   │   ├── README.md
+│   │   ├── requirements.txt
+│   │   └── single_url.py
 │   └── rust/
+│       ├── Cargo.toml
+│       ├── README.md
+│       └── src/bin/single_url.rs
 ├── sample-data/
 │   └── tiktok-video-urls.csv
 ├── sample-output/

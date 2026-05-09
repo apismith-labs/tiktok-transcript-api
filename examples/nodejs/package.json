@@ -1,0 +1,13 @@
+{
+  "name": "tiktok-transcript-api-nodejs-examples",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "single": "node single-url.mjs"
+  },
+  "dependencies": {
+    "apify-client": "^2.12.6",
+    "dotenv": "^16.4.7"
+  }
+}
