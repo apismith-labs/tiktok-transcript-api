@@ -17,6 +17,17 @@ AI-assisted content workflows.
 
 ## Quick start
 
+Start here:
+
+1. Read the [quick start](docs/quick-start.md).
+2. Set `APIFY_TOKEN` in `.env`.
+3. Run the [cURL example](examples/curl/).
+4. Try [Python](examples/python/) or [Node.js](examples/nodejs/).
+5. Review the [API reference](docs/api-reference.md) and
+   [troubleshooting guide](docs/troubleshooting.md).
+
+Minimal local setup:
+
 1. Create a local environment file:
 
    ```bash
@@ -40,6 +51,21 @@ AI-assisted content workflows.
 
    You can also use the cURL, Node.js, Java, Go, and Rust examples listed
    below.
+
+## Documentation
+
+- [Quick start](docs/quick-start.md)
+- [API reference](docs/api-reference.md)
+- [Batch processing](docs/batch-processing.md)
+- [AI workflows](docs/ai-workflows.md)
+- [AI agent use cases](docs/ai-agent-use-cases.md)
+- [Prompt recipes](docs/prompt-recipes.md)
+- [Apify MCP](docs/apify-mcp.md)
+- [ChatGPT via Apify MCP](docs/chatgpt-mcp.md)
+- [Claude via Apify MCP](docs/claude-mcp.md)
+- [Gemini CLI workflows](docs/gemini-cli-mcp.md)
+- [Cursor and VS Code workflows](docs/cursor-vscode-mcp.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
 ## Authentication
 
@@ -120,6 +146,26 @@ the environment, calls the Actor with the minimal `videoUrl` input, prints the
 main transcript and useful metadata, and saves the full dataset response under
 `sample-output/generated/`.
 
+## Live demo
+
+If you want to test TikTok transcript extraction without writing code, try the
+Transcript365 web demo built on top of this API:
+
+[https://www.transcript365.com/free/tiktok-transcript](https://www.transcript365.com/free/tiktok-transcript)
+
+## AI and MCP workflows
+
+The examples in this repository can be used as building blocks for AI agents,
+LLM workflows, Apify MCP, ChatGPT, Claude, Gemini CLI, Cursor, VS Code,
+n8n, Make, Zapier, and custom backend jobs.
+
+Start with:
+
+- [AI workflows](docs/ai-workflows.md)
+- [Apify MCP](docs/apify-mcp.md)
+- [Prompt recipes](docs/prompt-recipes.md)
+- [AI agent use cases](docs/ai-agent-use-cases.md)
+
 ## Use cases
 
 - TikTok transcript extraction
@@ -134,7 +180,18 @@ main transcript and useful metadata, and saves the full dataset response under
 ```text
 .
 ├── docs/
-│   └── .gitkeep
+│   ├── ai-agent-use-cases.md
+│   ├── ai-workflows.md
+│   ├── api-reference.md
+│   ├── apify-mcp.md
+│   ├── batch-processing.md
+│   ├── chatgpt-mcp.md
+│   ├── claude-mcp.md
+│   ├── cursor-vscode-mcp.md
+│   ├── gemini-cli-mcp.md
+│   ├── prompt-recipes.md
+│   ├── quick-start.md
+│   └── troubleshooting.md
 ├── examples/
 │   ├── curl/
 │   │   ├── README.md
