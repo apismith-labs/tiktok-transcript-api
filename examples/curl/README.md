@@ -5,6 +5,12 @@ TikTok video URL quickly.
 
 ## Setup
 
+Requirements:
+
+- `curl`
+- `bash`
+- `python3` for the response summary printed after the request
+
 From the repository root:
 
 ```bash

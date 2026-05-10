@@ -16,6 +16,17 @@ TikTok URL -> Apify Actor -> transcript text -> LLM analysis -> structured outpu
 The structured output might be a summary, topic list, hook analysis, content
 brief, sentiment note, subtitle draft, or database record.
 
+## Choose your implementation path
+
+- Direct API/examples: use the cURL, Python, Node.js, Java, Go, or Rust examples
+  in [examples](../examples/).
+- Apify MCP: use [Apify MCP setup](apify-mcp.md).
+- ChatGPT: use [ChatGPT MCP setup](chatgpt-mcp.md).
+- Claude: use [Claude Desktop MCP setup](claude-mcp.md).
+- Cursor and VS Code: use [Cursor and VS Code MCP setup](cursor-vscode-mcp.md).
+- Gemini CLI or terminal workflows: use
+  [Gemini CLI and terminal AI workflows](gemini-cli-mcp.md).
+
 ## Use cases
 
 ### Creator research

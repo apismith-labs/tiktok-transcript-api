@@ -10,16 +10,11 @@ with OkHttp, Jackson, and dotenv-java.
 
 ## Setup
 
-From this directory:
-
-```bash
-mvn compile
-```
-
 From the repository root:
 
 ```bash
 cp .env.example .env
+mvn -f examples/java/pom.xml compile
 ```
 
 Set `APIFY_TOKEN` in `.env` or your shell environment.

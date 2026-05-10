@@ -60,11 +60,11 @@ Minimal local setup:
 - [AI workflows](docs/ai-workflows.md)
 - [AI agent use cases](docs/ai-agent-use-cases.md)
 - [Prompt recipes](docs/prompt-recipes.md)
-- [Apify MCP](docs/apify-mcp.md)
-- [ChatGPT via Apify MCP](docs/chatgpt-mcp.md)
-- [Claude via Apify MCP](docs/claude-mcp.md)
-- [Gemini CLI workflows](docs/gemini-cli-mcp.md)
-- [Cursor and VS Code workflows](docs/cursor-vscode-mcp.md)
+- [Apify MCP setup](docs/apify-mcp.md)
+- [ChatGPT MCP setup](docs/chatgpt-mcp.md)
+- [Claude Desktop MCP setup](docs/claude-mcp.md)
+- [Cursor and VS Code MCP setup](docs/cursor-vscode-mcp.md)
+- [Gemini CLI / terminal AI workflows](docs/gemini-cli-mcp.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
 ## Authentication
@@ -162,7 +162,11 @@ n8n, Make, Zapier, and custom backend jobs.
 Start with:
 
 - [AI workflows](docs/ai-workflows.md)
-- [Apify MCP](docs/apify-mcp.md)
+- [Apify MCP setup](docs/apify-mcp.md)
+- [ChatGPT MCP setup](docs/chatgpt-mcp.md)
+- [Claude Desktop MCP setup](docs/claude-mcp.md)
+- [Cursor and VS Code MCP setup](docs/cursor-vscode-mcp.md)
+- [Gemini CLI / terminal AI workflows](docs/gemini-cli-mcp.md)
 - [Prompt recipes](docs/prompt-recipes.md)
 - [AI agent use cases](docs/ai-agent-use-cases.md)
 

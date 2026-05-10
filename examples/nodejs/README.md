@@ -5,16 +5,12 @@ with the official Apify JavaScript API client.
 
 ## Setup
 
-From this directory:
-
-```bash
-npm install
-```
-
 From the repository root:
 
 ```bash
 cp .env.example .env
+cd examples/nodejs
+npm install
 ```
 
 Set `APIFY_TOKEN` in `.env` or your shell environment.
@@ -22,13 +18,15 @@ Set `APIFY_TOKEN` in `.env` or your shell environment.
 ## Run
 
 ```bash
-node examples/nodejs/single-url.mjs
+cd examples/nodejs
+npm run single
 ```
 
 You can also pass a URL directly:
 
 ```bash
-node examples/nodejs/single-url.mjs "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+cd examples/nodejs
+node single-url.mjs "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
 ```
 
 The full response is saved to:

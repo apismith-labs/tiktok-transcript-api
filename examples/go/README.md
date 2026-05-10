@@ -9,17 +9,15 @@ with Go's standard HTTP and JSON packages.
 
 ## Setup
 
-From this directory:
-
-```bash
-go mod tidy
-```
-
 From the repository root:
 
 ```bash
 cp .env.example .env
+cd examples/go
+go mod tidy
 ```
+
+This may create or update `go.sum`.
 
 Set `APIFY_TOKEN` in `.env` or your shell environment.
 
