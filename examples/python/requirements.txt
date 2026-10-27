@@ -1,2 +1,2 @@
-apify-client
+apify-client==3.3.0
 python-dotenv

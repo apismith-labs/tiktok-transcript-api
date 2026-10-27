@@ -1,66 +1,77 @@
-# Batch Processing TikTok Video URLs
+# CSV batch processing
 
-This guide describes how to build batch processing around the single-video
-examples in this repository.
+The Actor accepts one `videoUrl` string per Run. The examples implement batch
+processing on the client: each valid CSV row starts a separate Run. They do not
+send URL arrays to the Actor.
 
-The repository currently includes single-video examples only. Use this guide as
-an implementation pattern before adding batch code to your own project.
+## Input file
 
-## CSV input
-
-Start with [sample-data/tiktok-video-urls.csv](../sample-data/tiktok-video-urls.csv).
-
-Recommended CSV format:
+The sample file is [sample-data/tiktok-video-urls.csv](../sample-data/tiktok-video-urls.csv):
 
 ```csv
 videoUrl
-https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392
+https://www.tiktok.com/@carter.braydon/video/7647694374876319007
 ```
 
-Each row should contain one TikTok video URL in the `videoUrl` column.
+A CSV may include an optional `id` column with unique, non-empty identifiers.
+Without `id`, the examples derive row keys from each URL and its occurrence
+number. Keep the URL text and order of duplicate URLs stable when resuming.
+Empty URLs, duplicate identifiers, and malformed rows are reported instead of
+being submitted.
 
-## Suggested workflow
+## Run a batch
 
-1. Read the CSV file.
-2. Validate that each row has a non-empty `videoUrl`.
-3. Run the Apify Actor `apple_yang/tiktok-transcripts-scraper` once for each URL.
-4. Wait for each Actor run to finish.
-5. Fetch dataset results for each run.
-6. Save successful records to JSON or JSONL.
-7. Save failed records to a separate CSV or JSON file.
-8. Preserve the source URL with every result.
+All examples default to concurrency 2. Python, Node.js, Go, and Rust support
+1–16 workers; Java supports 1–8. From the repository root:
 
-## Suggested result shape
-
-For batch workflows, keep one normalized record per input URL:
-
-```json
-{
-  "sourceUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392",
-  "status": "success",
-  "text": "",
-  "segments": [],
-  "errMsg": "",
-  "rawItems": []
-}
+```bash
+python3 examples/python/csv_batch.py sample-data/tiktok-video-urls.csv --concurrency 2 --max-wait 900
+(cd examples/nodejs && npm run batch -- ../../sample-data/tiktok-video-urls.csv --concurrency 2 --max-wait 900)
+(cd examples/go && go run . batch --csv ../../sample-data/tiktok-video-urls.csv --journal ../../sample-output/generated/go-csv-batch-results.jsonl --concurrency 2 --max-wait 900)
+cargo run --manifest-path examples/rust/Cargo.toml --bin csv_batch -- --csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/rust-csv-batch.jsonl --concurrency 2 --max-wait 900
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.CsvBatch -Dexec.args="--csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/java-csv-batch-results.jsonl --concurrency 2 --max-wait 900" compile exec:java
 ```
 
-The `rawItems` field is useful during validation because Actor output may vary
-by video.
+The examples append JSONL progress records so that known Run IDs can be
+resumed. Before a Run creation POST, they persist a `start_attempted` record.
+An unresolved creation result is not automatically posted again. One client
+POST attempt is not a server-side exactly-once guarantee; check Apify Console
+when the result is unknown.
 
-## Production considerations
+## Resume and reconcile
 
-- Retries: retry temporary network failures, rate limits, and timeouts with
-  backoff. Avoid retrying clearly invalid input forever.
-- Rate limits: keep concurrency modest until you understand Apify usage,
-  latency, and any platform-specific limits.
-- Failed URLs: write failures to a durable file or database table with the
-  source URL, error message, attempt count, and timestamp.
-- Empty transcripts: treat empty `text` as a valid failure mode to inspect, not
-  as proof that the integration is broken.
-- Logging: log run IDs, dataset IDs, source URLs, and statuses. Never log
-  `APIFY_TOKEN`.
-- Output storage: store generated files outside version control. This
-  repository ignores `sample-output/generated/`.
-- Resumability: for larger CSV files, checkpoint progress so a failed job can
-  continue without starting from the beginning.
+A row with a known Run ID and unchanged URL can resume status and Dataset reads
+for that same Run. If a pending row's URL changes, it needs manual
+reconciliation; the old Dataset is not attached to the new URL. Completed rows
+whose URL changes are handled as new input by the language implementations.
+
+Python and Node.js can list journal entries needing review without a CSV:
+
+```bash
+python3 examples/python/csv_batch.py --reconcile
+(cd examples/nodejs && npm run batch -- --reconcile)
+```
+
+Java, Go, and Rust reconcile against the current CSV and journal:
+
+```bash
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.CsvBatch -Dexec.args="--csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/java-csv-batch-results.jsonl --reconcile" compile exec:java
+(cd examples/go && go run . batch --csv ../../sample-data/tiktok-video-urls.csv --journal ../../sample-output/generated/go-csv-batch-results.jsonl --reconcile)
+cargo run --manifest-path examples/rust/Cargo.toml --bin csv_batch -- --csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/rust-csv-batch.jsonl --reconcile
+```
+
+Reconcile is read-only. Inspect the recorded status, original/current URL, and
+Run ID in Apify Console before deciding how to proceed. Keep the journal as an
+audit trail; use a new journal path for a deliberately separate batch.
+
+## Interpret each row
+
+A Run is not a successful transcript merely because its status is `SUCCEEDED`.
+The client must also read the default Dataset and find usable `text` without a
+non-empty `errMsg`. Empty Dataset, missing/blank transcript, Actor failure,
+Dataset read failure, and unknown Run creation are distinct outcomes. Batch
+commands return non-zero when a row fails or needs manual action.
+
+Runtime JSON/JSONL files are written under `sample-output/generated/` and
+ignored by Git. Java's default journal is adjacent to the CSV unless `--journal`
+is supplied. Never include `APIFY_TOKEN` in a journal or application log.

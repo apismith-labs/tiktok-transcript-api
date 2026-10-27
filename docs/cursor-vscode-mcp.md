@@ -83,7 +83,7 @@ Restart Cursor after changing MCP configuration.
 Use Apify MCP to run the Actor `apple_yang/tiktok-transcripts-scraper` with this input:
 
 {
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
 }
 
 Retrieve the dataset output and generate a TypeScript interface for the fields returned.
@@ -114,7 +114,7 @@ configuration path depends on the extension or AI client.
 ```text
 Use Apify MCP to run `apple_yang/tiktok-transcripts-scraper` with this TikTok URL:
 
-https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392
+https://www.tiktok.com/@carter.braydon/video/7647694374876319007
 
 Return the transcript text, title, creator nickname, duration, play count, and any `errMsg`.
 ```

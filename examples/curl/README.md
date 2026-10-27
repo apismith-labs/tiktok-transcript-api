@@ -1,44 +1,29 @@
-# Use TikTok Transcript API with cURL
+# cURL example
 
-This example uses Apify's synchronous dataset-items endpoint to validate one
-TikTok video URL quickly.
+This Bash script creates one Run for the fixed TikTok Actor, waits for that Run,
+then reads its Dataset. It requires Bash, `curl`, and Python 3 (standard library
+only). It does not load `.env`.
 
-## Setup
-
-Requirements:
-
-- `curl`
-- `bash`
-- `python3` for the response summary printed after the request
-
-From the repository root:
+From the repository root, set `APIFY_TOKEN` in your shell:
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` and set your Apify token:
-
-```bash
-APIFY_TOKEN=your_apify_token_here
-APIFY_ACTOR_ID=apple_yang/tiktok-transcripts-scraper
-TIKTOK_VIDEO_URL=https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392
-```
-
-## Run
-
-```bash
+export APIFY_TOKEN='your_apify_token_here'
 bash examples/curl/single-url-sync.sh
 ```
 
-You can also pass a URL directly:
+The default video URL is
+`https://www.tiktok.com/@carter.braydon/video/7647694374876319007`. Replace it
+with `--video-url`:
 
 ```bash
-bash examples/curl/single-url-sync.sh "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+bash examples/curl/single-url-sync.sh --video-url 'https://www.tiktok.com/@user/video/1234567890'
 ```
 
-The full response is saved to:
+The script uses one client-side POST attempt; this is not a server-side
+exactly-once guarantee. If the create result is unknown, check Apify Console
+before trying again. For long waits, use `start`, then continue with the same
+Run ID using `wait --run-id RUN_ID`. Outputs are written to
+`sample-output/generated/`.
 
-```text
-sample-output/generated/curl-single-url-response.json
-```
+See [QuickStart](../../docs/quick-start.md) for the complete command set and
+[API reference](../../docs/api-reference.md) for response fields.

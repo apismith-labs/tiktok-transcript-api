@@ -1,235 +1,89 @@
-# TikTok Transcript API
+# TikTok Transcript API examples
 
-Production-ready examples for extracting TikTok video transcripts with Apify.
+This repository contains runnable integration examples for the fixed Apify
+Actor [`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
+The Actor accepts one `videoUrl` string per Run. The examples show a single
+video call, separate `start` / `wait` flows, and client-side CSV fan-out where
+implemented.
 
-This repository provides developer-focused examples and integration patterns for
-the Apify Actor
-[apple_yang/tiktok-transcripts-scraper](https://apify.com/apple_yang/tiktok-transcripts-scraper).
-
-Use it to validate TikTok transcript extraction, plan batch workflows, and build
-transcript data into apps, internal tools, databases, analytics pipelines, and
-AI-assisted content workflows.
-
-## Apify Actor
-
-- Actor page: [Stable Tiktok Transcripts Scraper](https://apify.com/apple_yang/tiktok-transcripts-scraper)
-- Actor ID: `apple_yang/tiktok-transcripts-scraper`
+**Try the Actor:** [Open the Apify Actor](https://apify.com/apple_yang/tiktok-transcripts-scraper)
+to run it from Apify Console. This GitHub repository is for copying the same
+integration into your own code.
 
 ## Quick start
 
-Start here:
+From the repository root, provide your token in the shell and run the cURL
+example (Bash, curl, and Python 3 are required):
 
-1. Read the [quick start](docs/quick-start.md).
-2. Set `APIFY_TOKEN` in `.env`.
-3. Run the [cURL example](examples/curl/).
-4. Try [Python](examples/python/) or [Node.js](examples/nodejs/).
-5. Review the [API reference](docs/api-reference.md) and
-   [troubleshooting guide](docs/troubleshooting.md).
+```bash
+export APIFY_TOKEN='your_apify_token_here'
+bash examples/curl/single-url-sync.sh
+```
 
-Minimal local setup:
+The script uses this default TikTok video URL:
 
-1. Create a local environment file:
+```text
+https://www.tiktok.com/@carter.braydon/video/7647694374876319007
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+To use another video, pass `--video-url`:
 
-2. Add your Apify token:
+```bash
+bash examples/curl/single-url-sync.sh --video-url 'https://www.tiktok.com/@user/video/1234567890'
+```
 
-   ```bash
-   APIFY_TOKEN=your_apify_token_here
-   APIFY_ACTOR_ID=apple_yang/tiktok-transcripts-scraper
-   TIKTOK_VIDEO_URL=https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392
-   MAX_CONCURRENCY=3
-   ```
+The cURL script reads `APIFY_TOKEN` from the process environment and does not
+load `.env`. Python, Node.js, and Java also load a repository-root `.env`; Go
+and Rust read the process environment only. See [QuickStart](docs/quick-start.md)
+for per-language setup and the exact commands.
 
-3. Run a language example:
+## What the examples do
 
-   ```bash
-   python examples/python/single_url.py
-   ```
+- Call the fixed Actor API ID `apple_yang~tiktok-transcripts-scraper` at
+  `api.apify.com`. There is no Actor ID setting to change.
+- Send only `{ "videoUrl": "..." }` as Actor input. A CSV client starts one
+  independent Run per valid row; the Actor itself does not accept URL arrays.
+- Read the Run status and Dataset separately. `SUCCEEDED` alone does not mean
+  transcript text is available; inspect Dataset items, `text`, and `errMsg`.
+- Save outputs under `sample-output/generated/`, which Git ignores. The
+  repository does not include a committed raw transcript sample; learn how to
+  inspect a generated Dataset in the [API reference](docs/api-reference.md).
 
-   You can also use the cURL, Node.js, Java, Go, and Rust examples listed
-   below.
+Run creation uses one client-side POST attempt, which is not a server-side
+exactly-once guarantee. If creation has an uncertain result, check Apify Console
+before retrying. After a wait timeout, continue with the same Run ID.
+
+## Language examples
+
+Commands below start from the repository root unless noted. Set `APIFY_TOKEN`
+as described in each language guide.
+
+| Example | Runtime | Single-video command | Guide |
+| --- | --- | --- | --- |
+| cURL | Bash, curl, Python 3 | `bash examples/curl/single-url-sync.sh` | [cURL](examples/curl/README.md) |
+| Python | Python 3.11+ | `python3 examples/python/single_url.py` | [Python](examples/python/README.md) |
+| Node.js | Node.js 20.12+ | `node examples/nodejs/single-url.mjs` | [Node.js](examples/nodejs/README.md) |
+| Java | JDK 17, Maven | `mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.SingleUrl compile exec:java` | [Java](examples/java/README.md) |
+| Go | Go 1.22+ | `cd examples/go && go run .` | [Go](examples/go/README.md) |
+| Rust | Rust 2021, Cargo lockfile v4 | `cargo run --manifest-path examples/rust/Cargo.toml --bin single_url` | [Rust](examples/rust/README.md) |
+
+The per-language guides include URL overrides, async Run retrieval, CSV batch
+commands, output files, and offline tests.
 
 ## Documentation
 
-- [Quick start](docs/quick-start.md)
+- [QuickStart](docs/quick-start.md)
 - [API reference](docs/api-reference.md)
 - [Batch processing](docs/batch-processing.md)
-- [AI workflows](docs/ai-workflows.md)
-- [AI agent use cases](docs/ai-agent-use-cases.md)
-- [Prompt recipes](docs/prompt-recipes.md)
-- [Apify MCP setup](docs/apify-mcp.md)
-- [ChatGPT MCP setup](docs/chatgpt-mcp.md)
-- [Claude Desktop MCP setup](docs/claude-mcp.md)
-- [Cursor and VS Code MCP setup](docs/cursor-vscode-mcp.md)
-- [Gemini CLI / terminal AI workflows](docs/gemini-cli-mcp.md)
 - [Troubleshooting](docs/troubleshooting.md)
-
-## Authentication
-
-You must provide your own Apify API token.
-
-Do not hard-code tokens in source code, scripts, docs, commits, logs,
-screenshots, or shared output files.
-
-Configuration belongs in `.env`:
-
-- `APIFY_TOKEN`
-- `APIFY_ACTOR_ID`
-- `TIKTOK_VIDEO_URL`
-- `MAX_CONCURRENCY`
-
-TikTok video URLs should be treated as runtime input in production examples.
-The `TIKTOK_VIDEO_URL` value in `.env.example` is only a convenient local
-validation default.
-
-## Actor input
-
-The verified Actor input field is `videoUrl`:
-
-```json
-{
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
-}
-```
-
-Do not add undocumented Actor input fields without verifying them against a real
-Actor run or the Actor page.
-
-## Important output fields
-
-The Actor page shows these output fields:
-
-- `url`
-- `title`
-- `audioUrl`
-- `createTime`
-- `playCount`
-- `commentCount`
-- `diggCount`
-- `shareCount`
-- `collectCount`
-- `duration`
-- `text`
-- `segments`
-- `nickname`
-- `avatarUri`
-- `signature`
-- `secUid`
-- `followerCount`
-- `followingCount`
-- `heartCount`
-- `errMsg`
-- `timestamp`
-
-Treat metadata fields as optional in production code. The exact `segments`
-object shape and field types should be verified with a real Actor run before
-building strict schemas.
-
-## Examples
-
-This repository includes single-video examples for:
-
-| Language | Command | Directory |
-| --- | --- | --- |
-| cURL | `bash examples/curl/single-url-sync.sh` | [examples/curl/](examples/curl/) |
-| Python | `python examples/python/single_url.py` | [examples/python/](examples/python/) |
-| Node.js | `node examples/nodejs/single-url.mjs` | [examples/nodejs/](examples/nodejs/) |
-| Java | `mvn -f examples/java/pom.xml exec:java -Dexec.mainClass=com.apismith.tiktok.SingleUrl` | [examples/java/](examples/java/) |
-| Go | `cd examples/go && go run single_url.go` | [examples/go/](examples/go/) |
-| Rust | `cargo run --manifest-path examples/rust/Cargo.toml --bin single_url` | [examples/rust/](examples/rust/) |
-
-Each example reads `APIFY_TOKEN`, `APIFY_ACTOR_ID`, and `TIKTOK_VIDEO_URL` from
-the environment, calls the Actor with the minimal `videoUrl` input, prints the
-main transcript and useful metadata, and saves the full dataset response under
-`sample-output/generated/`.
-
-## Live demo
-
-If you want to test TikTok transcript extraction without writing code, try the
-Transcript365 web demo built on top of this API:
-
-[https://www.transcript365.com/free/tiktok-transcript](https://www.transcript365.com/free/tiktok-transcript)
-
-## AI and MCP workflows
-
-The examples in this repository can be used as building blocks for AI agents,
-LLM workflows, Apify MCP, ChatGPT, Claude, Gemini CLI, Cursor, VS Code,
-n8n, Make, Zapier, and custom backend jobs.
-
-Start with:
-
-- [AI workflows](docs/ai-workflows.md)
-- [Apify MCP setup](docs/apify-mcp.md)
-- [ChatGPT MCP setup](docs/chatgpt-mcp.md)
-- [Claude Desktop MCP setup](docs/claude-mcp.md)
-- [Cursor and VS Code MCP setup](docs/cursor-vscode-mcp.md)
-- [Gemini CLI / terminal AI workflows](docs/gemini-cli-mcp.md)
+- [AI workflows](docs/ai-workflows.md) and [agent use cases](docs/ai-agent-use-cases.md)
 - [Prompt recipes](docs/prompt-recipes.md)
-- [AI agent use cases](docs/ai-agent-use-cases.md)
+- [Apify MCP](docs/apify-mcp.md), [ChatGPT](docs/chatgpt-mcp.md),
+  [Claude](docs/claude-mcp.md), [Cursor / VS Code](docs/cursor-vscode-mcp.md),
+  and [Gemini CLI](docs/gemini-cli-mcp.md)
 
-## Use cases
+## Token safety
 
-- TikTok transcript extraction
-- TikTok caption and subtitle workflows
-- Creator research
-- Social media monitoring
-- AI content analysis
-- Batch transcript processing
-
-## Repository layout
-
-```text
-.
-├── docs/
-│   ├── ai-agent-use-cases.md
-│   ├── ai-workflows.md
-│   ├── api-reference.md
-│   ├── apify-mcp.md
-│   ├── batch-processing.md
-│   ├── chatgpt-mcp.md
-│   ├── claude-mcp.md
-│   ├── cursor-vscode-mcp.md
-│   ├── gemini-cli-mcp.md
-│   ├── prompt-recipes.md
-│   ├── quick-start.md
-│   └── troubleshooting.md
-├── examples/
-│   ├── curl/
-│   │   ├── README.md
-│   │   └── single-url-sync.sh
-│   ├── go/
-│   │   ├── README.md
-│   │   ├── go.mod
-│   │   └── single_url.go
-│   ├── java/
-│   │   ├── README.md
-│   │   ├── pom.xml
-│   │   └── src/main/java/com/apismith/tiktok/SingleUrl.java
-│   ├── nodejs/
-│   │   ├── README.md
-│   │   ├── package.json
-│   │   └── single-url.mjs
-│   ├── python/
-│   │   ├── README.md
-│   │   ├── requirements.txt
-│   │   └── single_url.py
-│   └── rust/
-│       ├── Cargo.toml
-│       ├── README.md
-│       └── src/bin/single_url.rs
-├── sample-data/
-│   └── tiktok-video-urls.csv
-├── sample-output/
-│   └── .gitkeep
-├── .env.example
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
-## License
-
-This project is licensed under the MIT License.
+Provide only `APIFY_TOKEN` as a credential. Do not place it in source code,
+URLs, logs, committed files, or shared output. The Actor ID is fixed in the
+examples; do not configure `APIFY_ACTOR_ID`.

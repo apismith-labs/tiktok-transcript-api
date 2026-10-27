@@ -1,57 +1,92 @@
-# TikTok Transcript API Reference
+# API reference
 
-This repository calls the TikTok transcripts Actor on Apify.
+The examples call the fixed Apify Actor
+[`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper):
 
-## Actor
+- Actor API ID: `apple_yang~tiktok-transcripts-scraper`
+- API host: `api.apify.com`
+- One Run input: a single `videoUrl` string
 
-- Actor ID: `apple_yang/tiktok-transcripts-scraper`
-- Actor page: [https://apify.com/apple_yang/tiktok-transcripts-scraper](https://apify.com/apple_yang/tiktok-transcripts-scraper)
-
-## Input
-
-Use the minimal Actor input:
+The examples send the minimal input:
 
 ```json
 {
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
 }
 ```
 
-Do not add extra input fields unless they are confirmed by the Actor page or a
-real Actor run.
+The Actor does not accept a URL array. Batch examples start one Run per valid
+CSV row from the client.
 
-## Output fields
+## Run and Dataset flow
 
-Actual fields may vary depending on the TikTok video, transcript availability,
-and Actor result. Treat all metadata fields as optional unless your own testing
-proves otherwise.
+1. Create a Run with `POST /v2/actors/apple_yang~tiktok-transcripts-scraper/runs`.
+2. Read the Run by its returned Run ID. The Run resource response has a `data`
+   object containing `id`, `status`, and, after completion,
+   `defaultDatasetId`.
+3. Once the Run is `SUCCEEDED`, read
+   `GET /v2/datasets/{defaultDatasetId}/items`. Dataset Items are a JSON array.
 
-| Field | Description |
-| --- | --- |
-| `url` | Source TikTok video URL or canonical URL returned by the Actor. |
-| `title` | Video title, caption, or descriptive text when available. |
-| `audioUrl` | Audio URL returned by the Actor when available. |
-| `createTime` | Video creation time value returned by the Actor. |
-| `playCount` | Number of plays or views when available. |
-| `commentCount` | Number of comments when available. |
-| `diggCount` | Number of likes when available. |
-| `shareCount` | Number of shares when available. |
-| `collectCount` | Number of saves or collections when available. |
-| `duration` | Video duration when available. |
-| `text` | Transcript text. This is usually the primary field application code consumes. |
-| `segments` | Timestamped transcript segments when available. The exact segment object shape should be verified with a real Actor run. |
-| `nickname` | Creator display name when available. |
-| `avatarUri` | Creator avatar URL when available. |
-| `signature` | Creator profile signature or bio text when available. |
-| `secUid` | Creator identifier returned by the Actor when available. |
-| `followerCount` | Creator follower count when available. |
-| `followingCount` | Creator following count when available. |
-| `heartCount` | Creator total like count when available. |
-| `errMsg` | Error message returned by the Actor for failed or partial processing. |
-| `timestamp` | Processing timestamp or transcript timestamp metadata returned by the Actor. |
+`SUCCEEDED` only describes the Run. It does not prove that a Dataset item or
+usable transcript exists. Check the Dataset response, `text`, and `errMsg`.
+The examples report Run failures, missing/empty Dataset results, missing or
+blank transcript text, and non-empty `errMsg` separately.
 
-## Parsing guidance
+A create request is sent once by the client; that does not guarantee
+server-side exactly-once creation. If the request response is uncertain, first
+check Apify Console and do not automatically submit another POST. After a wait
+timeout, use the same Run ID to continue reading status.
 
-Production integrations should preserve the raw Actor output during early
-validation. Normalize only the fields your application needs, and keep `errMsg`
-for failed records so operators can investigate input-specific issues.
+## Public Output schema
+
+The [Actor Output schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema)
+currently lists these fields and types. Values are generated from TikTok data
+and can vary by video and run; handle errors and empty transcript values.
+
+| Field | Schema type | Notes |
+| --- | --- | --- |
+| `url` | string | Video URL field in the output schema. |
+| `title` | string | Video title. |
+| `createTime` | string | Creation-time value. |
+| `playCount` | integer | Play count. |
+| `commentCount` | integer | Comment count. |
+| `diggCount` | integer | Like count. |
+| `shareCount` | integer | Share count. |
+| `collectCount` | integer | Collection count. |
+| `duration` | number | Video duration. |
+| `text` | string | Transcript text; may be empty when transcript is unavailable. |
+| `segments` | object array | Timestamped transcript segments. An observed item has `start`, `end`, and `text`; check current output before relying on additional properties or units. |
+| `nickname` | string | Creator nickname. |
+| `avatarUri` | string | Avatar URI. |
+| `signature` | string | Creator signature. |
+| `secUid` | string | Creator identifier. |
+| `followerCount` | integer | Follower count. |
+| `followingCount` | integer | Following count. |
+| `heartCount` | integer | Creator heart count. |
+| `errMsg` | string | Actor processing error text; an empty value does not replace Run/Dataset checks. |
+| `timestamp` | string | Fetch timestamp. |
+
+`videoUrl` is the Actor input field, not a guaranteed output field.
+`audioUrl` is not in the current public Output schema. Do not make application
+logic depend on either as a Dataset output field.
+
+## Inspect a generated Dataset
+
+No live Dataset JSON is committed as a fixture. Single-video examples that
+write files save complete Dataset Items under `sample-output/generated/`,
+which Git ignores. Async `wait` commands that only report a summary do not
+write Dataset files. For example, after a Python single-video run:
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+items = json.loads(Path("sample-output/generated/python-single-url-response.json").read_text(encoding="utf-8"))
+print(json.dumps(items[0] if items else [], ensure_ascii=False, indent=2))
+PY
+```
+
+Preserve raw items while integrating. Normalize only the fields your
+application needs, and retain `errMsg` for records that did not produce usable
+transcript text.

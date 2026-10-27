@@ -1,42 +1,25 @@
-# Use TikTok Transcript API with Go
+# Go example
 
-This example calls the Apify Actor `apple_yang/tiktok-transcripts-scraper`
-with Go's standard HTTP and JSON packages.
+Requires Go 1.22+. The example uses the Go standard library and reads
+`APIFY_TOKEN` from the process environment; it does not load `.env`. The Actor
+ID is fixed in code.
 
-## Requirements
-
-- Go 1.22 or newer
-
-## Setup
-
-From the repository root:
-
-```bash
-cp .env.example .env
-cd examples/go
-go mod tidy
-```
-
-This may create or update `go.sum`.
-
-Set `APIFY_TOKEN` in `.env` or your shell environment.
-
-## Run
+From the repository root, export `APIFY_TOKEN`, then use:
 
 ```bash
 cd examples/go
-go run single_url.go
+go run .
+go run . --video-url 'https://www.tiktok.com/@user/video/1234567890'
+go run . start
+go run . wait --run-id RUN_ID --max-wait 900
+go run . batch --csv ../../sample-data/tiktok-video-urls.csv --journal ../../sample-output/generated/go-csv-batch-results.jsonl --concurrency 2 --max-wait 900
+go run . batch --csv ../../sample-data/tiktok-video-urls.csv --journal ../../sample-output/generated/go-csv-batch-results.jsonl --reconcile
 ```
 
-You can also pass a URL directly:
+The default video URL is
+`https://www.tiktok.com/@carter.braydon/video/7647694374876319007`. Run
+creation sends one client-side POST attempt, not an exactly-once guarantee. If
+the result is unknown, check Apify Console before retrying; after a wait timeout
+continue with the same Run ID.
 
-```bash
-cd examples/go
-go run single_url.go "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
-```
-
-The full response is saved to:
-
-```text
-sample-output/generated/go-single-url-response.json
-```
+Offline checks are listed in [QuickStart](../../docs/quick-start.md).

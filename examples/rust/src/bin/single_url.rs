@@ -1,200 +1,164 @@
-use anyhow::{bail, Context, Result};
-use reqwest::Client;
-use serde::Deserialize;
-use serde_json::{json, Value};
 use std::env;
 use std::fs;
-use std::path::PathBuf;
-use tokio::time::{sleep, Duration};
-
-const DEFAULT_ACTOR_ID: &str = "apple_yang/tiktok-transcripts-scraper";
-const DEFAULT_VIDEO_URL: &str = "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392";
-const API_BASE_URL: &str = "https://api.apify.com/v2";
-
-#[derive(Debug, Deserialize)]
-struct ApiResponse<T> {
-    data: T,
-}
-
-#[derive(Debug, Deserialize)]
-struct RunInfo {
-    id: Option<String>,
-    status: Option<String>,
-    #[serde(rename = "defaultDatasetId")]
-    default_dataset_id: Option<String>,
-}
+use std::io::{self, Write};
+use std::path::Path;
+use tiktok_transcript_api_rust_examples::{
+    generated_output_path, preflight_output_directory, transcript_failure, ApiClient,
+    ACTOR_DISPLAY_NAME, DEFAULT_MAX_WAIT_SECONDS, DEFAULT_VIDEO_URL,
+};
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let repo_root = find_repo_root()?;
-    let _ = dotenvy::from_path(repo_root.join(".env"));
-
-    let token = require_env("APIFY_TOKEN")?;
-    let actor_id = env::var("APIFY_ACTOR_ID").unwrap_or_else(|_| DEFAULT_ACTOR_ID.to_string());
-    let video_url = env::args()
-        .nth(1)
-        .or_else(|| env::var("TIKTOK_VIDEO_URL").ok())
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| DEFAULT_VIDEO_URL.to_string());
-
-    println!("Actor ID: {actor_id}");
-    println!("Running request...");
-
-    let client = Client::builder()
-        .timeout(Duration::from_secs(600))
-        .build()
-        .context("Failed to create HTTP client")?;
-
-    let run = start_actor_run(&client, &token, &actor_id, &video_url).await?;
-    let run_id = run
-        .id
-        .ok_or_else(|| anyhow::anyhow!("Error: Actor run response did not include an id."))?;
-    let finished_run = wait_for_run(&client, &token, &run_id).await?;
-    let status = finished_run.status.unwrap_or_default();
-    if status != "SUCCEEDED" {
-        bail!("Error: Actor run finished with status {status}.");
+async fn main() {
+    if let Err(error) = run().await {
+        eprintln!("{error}");
+        std::process::exit(1);
     }
-    let dataset_id = finished_run
-        .default_dataset_id
-        .ok_or_else(|| anyhow::anyhow!("Error: Actor run completed without a defaultDatasetId."))?;
+}
 
-    let items = fetch_dataset_items(&client, &token, &dataset_id).await?;
-    if items.is_empty() {
-        bail!("Error: Actor returned an empty dataset.");
-    }
-
-    let output_dir = repo_root.join("sample-output/generated");
-    let output_file = output_dir.join("rust-single-url-response.json");
-    fs::create_dir_all(&output_dir).context("Failed to create output directory")?;
-    fs::write(
-        &output_file,
-        format!("{}\n", serde_json::to_string_pretty(&items)?),
-    )
-    .context("Failed to write output file")?;
-
-    let text = first_string(&items, "text").unwrap_or_default();
-    println!("Output path: {}", output_file.display());
-    println!("Items: {}", items.len());
-    println!("Title: {}", first_string(&items, "title").unwrap_or_default());
-    println!("Creator: {}", first_string(&items, "nickname").unwrap_or_default());
-    println!(
-        "Play count: {}",
-        first_value_text(&items, "playCount").unwrap_or_default()
-    );
-    println!("Transcript characters: {}", text.chars().count());
-    if !text.is_empty() {
-        println!("Transcript preview:");
-        println!("{}", text.chars().take(500).collect::<String>());
-    }
-    if let Some(err_msg) = first_string(&items, "errMsg") {
-        if !err_msg.is_empty() {
-            println!("errMsg: {err_msg}");
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut video_url = DEFAULT_VIDEO_URL.to_string();
+    let mut max_wait = DEFAULT_MAX_WAIT_SECONDS;
+    let mut args = env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--video-url" => video_url = args.next().ok_or("--video-url requires a URL")?,
+            "--max-wait" => {
+                max_wait = tiktok_transcript_api_rust_examples::parse_max_wait_seconds(
+                    &args.next().ok_or("--max-wait requires seconds")?,
+                )?;
+            }
+            _ => return Err(format!("Unknown argument: {arg}").into()),
         }
     }
+    tiktok_transcript_api_rust_examples::validate_video_url(&video_url)?;
+    tiktok_transcript_api_rust_examples::validate_max_wait_seconds(max_wait)?;
+    let token =
+        env::var("APIFY_TOKEN").map_err(|_| "APIFY_TOKEN is required in the environment")?;
+    let client = ApiClient::production(token)?;
 
+    run_single(
+        &client,
+        &video_url,
+        max_wait,
+        &generated_output_path("rust-single-url-response.json"),
+    )
+    .await
+}
+
+async fn run_single(
+    client: &ApiClient,
+    video_url: &str,
+    max_wait: u64,
+    output: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tiktok_transcript_api_rust_examples::validate_video_url(video_url)?;
+    tiktok_transcript_api_rust_examples::validate_max_wait_seconds(max_wait)?;
+    let output_directory = output
+        .parent()
+        .ok_or("Output path has no parent directory.")?;
+    preflight_output_directory(output_directory)?;
+    println!("Actor: {ACTOR_DISPLAY_NAME}");
+    println!("Creating Run and waiting for completion...");
+    io::stdout().flush()?;
+    let created = client.start_run(video_url).await?;
+    println!("Run ID: {}", created.id);
+    io::stdout().flush()?;
+    let run = client.wait_for_run(&created.id, max_wait).await?;
+    if run.status != "SUCCEEDED" {
+        return Err(format!("Actor Run finished with status {}.", run.status).into());
+    }
+    let dataset_id = run
+        .default_dataset_id
+        .as_deref()
+        .ok_or("Run succeeded without a default Dataset ID.")?;
+    let items = client.dataset_items(dataset_id).await?;
+    fs::write(
+        output,
+        format!("{}\n", serde_json::to_string_pretty(&items)?),
+    )?;
+    println!("Dataset Items: {}", items.len());
+    println!("Output: {}", output.display());
+    for field in ["text", "segments", "errMsg"] {
+        let value = items.first().and_then(|item| item.get(field));
+        println!(
+            "{field}: {}",
+            value
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "<missing>".to_string())
+        );
+    }
+    if let Some((_, message)) = transcript_failure(&run, &items) {
+        return Err(message.into());
+    }
     Ok(())
 }
 
-async fn start_actor_run(
-    client: &Client,
-    token: &str,
-    actor_id: &str,
-    video_url: &str,
-) -> Result<RunInfo> {
-    let actor_id_for_url = actor_id.replace('/', "~");
-    let url = format!("{API_BASE_URL}/acts/{actor_id_for_url}/runs");
-    let body = json!({
-        "videoUrl": video_url,
-    });
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tiktok_transcript_api_rust_examples::{
+        HttpRequest, HttpTransport, TransportError, TransportFuture,
+    };
 
-    let response: ApiResponse<RunInfo> =
-        send_json(client, token, reqwest::Method::POST, &url, Some(body)).await?;
-    Ok(response.data)
-}
+    static TEMP_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
-async fn wait_for_run(client: &Client, token: &str, run_id: &str) -> Result<RunInfo> {
-    for _ in 0..150 {
-        let url = format!("{API_BASE_URL}/actor-runs/{run_id}");
-        let response: ApiResponse<RunInfo> =
-            send_json(client, token, reqwest::Method::GET, &url, None).await?;
-        let status = response.data.status.as_deref().unwrap_or("");
-        if matches!(status, "SUCCEEDED" | "FAILED" | "TIMED-OUT" | "ABORTED") {
-            return Ok(response.data);
-        }
-        sleep(Duration::from_secs(2)).await;
-    }
-    bail!("Error: Timed out waiting for Actor run to finish.")
-}
-
-async fn fetch_dataset_items(client: &Client, token: &str, dataset_id: &str) -> Result<Vec<Value>> {
-    let url = format!("{API_BASE_URL}/datasets/{dataset_id}/items");
-    send_json(client, token, reqwest::Method::GET, &url, None).await
-}
-
-async fn send_json<T: for<'de> Deserialize<'de>>(
-    client: &Client,
-    token: &str,
-    method: reqwest::Method,
-    url: &str,
-    body: Option<Value>,
-) -> Result<T> {
-    let mut request = client
-        .request(method, url)
-        .bearer_auth(token)
-        .header("Content-Type", "application/json");
-    if let Some(body) = body {
-        request = request.json(&body);
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "{label}-{}-{}",
+            std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir(&path).unwrap();
+        path
     }
 
-    let response = request.send().await.context("Apify API request failed")?;
-    let status = response.status();
-    let text = response.text().await.context("Failed to read Apify API response")?;
-    if !status.is_success() {
-        bail!("HTTP {} from Apify API: {}", status.as_u16(), text);
-    }
-    serde_json::from_str(&text).context("Failed to parse Apify API response JSON")
-}
+    struct CountingTransport(Arc<AtomicUsize>);
 
-fn first_string(items: &[Value], field: &str) -> Option<String> {
-    items
-        .iter()
-        .filter_map(|item| item.get(field)?.as_str())
-        .find(|value| !value.is_empty())
-        .map(ToString::to_string)
-}
-
-fn first_value_text(items: &[Value], field: &str) -> Option<String> {
-    items
-        .iter()
-        .filter_map(|item| item.get(field))
-        .find(|value| !value.is_null())
-        .map(|value| {
-            value
-                .as_str()
-                .map(ToString::to_string)
-                .unwrap_or_else(|| value.to_string())
-        })
-}
-
-fn require_env(name: &str) -> Result<String> {
-    let value = env::var(name).unwrap_or_default();
-    if value.trim().is_empty() {
-        bail!("Error: {name} is required. Set it in .env or your environment.");
-    }
-    Ok(value)
-}
-
-fn find_repo_root() -> Result<PathBuf> {
-    let mut current = env::current_dir().context("Failed to read current directory")?;
-    loop {
-        if current.join(".env.example").exists()
-            && current.join("sample-data/tiktok-video-urls.csv").exists()
-        {
-            return Ok(current);
-        }
-        if !current.pop() {
-            break;
+    impl HttpTransport for CountingTransport {
+        fn send<'a>(&'a self, _request: HttpRequest) -> TransportFuture<'a> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Err(TransportError) })
         }
     }
-    bail!("Error: Could not locate repository root.")
+
+    #[tokio::test]
+    async fn output_preflight_failure_happens_before_run_creation() {
+        let temp = unique_temp_dir("rust-output-preflight-test");
+        let blocker = temp.join("not-a-directory");
+        std::fs::write(&blocker, "preserve me").unwrap();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let client = ApiClient::new(
+            "offline-token",
+            Arc::new(CountingTransport(requests.clone())),
+        )
+        .unwrap();
+        let error = run_single(
+            &client,
+            DEFAULT_VIDEO_URL,
+            DEFAULT_MAX_WAIT_SECONDS,
+            &blocker.join("generated").join("result.json"),
+        )
+        .await
+        .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Output directory preflight failed"));
+        assert_eq!(requests.load(Ordering::SeqCst), 0);
+        assert_eq!(std::fs::read_to_string(&blocker).unwrap(), "preserve me");
+        assert_eq!(std::fs::read_dir(&temp).unwrap().count(), 1);
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn successful_output_probe_is_removed_without_truncating_existing_result() {
+        let temp = unique_temp_dir("rust-output-probe-test");
+        let result = temp.join("rust-single-url-response.json");
+        std::fs::write(&result, "existing result").unwrap();
+        preflight_output_directory(&temp).unwrap();
+        assert_eq!(std::fs::read_to_string(&result).unwrap(), "existing result");
+        assert_eq!(std::fs::read_dir(&temp).unwrap().count(), 1);
+        std::fs::remove_dir_all(temp).unwrap();
+    }
 }

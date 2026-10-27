@@ -1,38 +1,32 @@
-# Use TikTok Transcript API with Java
+# Java example
 
-This example calls the Apify Actor `apple_yang/tiktok-transcripts-scraper`
-with OkHttp, Jackson, and dotenv-java.
+Requires JDK 17 and Maven. Maven dependencies are declared in
+`examples/java/pom.xml`. The program reads `APIFY_TOKEN` from the process
+environment first, then the repository-root `.env`; the Actor ID is fixed.
 
-## Requirements
+From the repository root, set `APIFY_TOKEN` or copy `.env.example` to `.env`.
 
-- Java 17
-- Maven
-
-## Setup
-
-From the repository root:
+Single video (default URL or explicit `--video-url`):
 
 ```bash
-cp .env.example .env
-mvn -f examples/java/pom.xml compile
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.SingleUrl compile exec:java
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.SingleUrl -Dexec.args="--video-url https://www.tiktok.com/@user/video/1234567890" compile exec:java
 ```
 
-Set `APIFY_TOKEN` in `.env` or your shell environment.
-
-## Run
+Async and CSV commands:
 
 ```bash
-mvn -f examples/java/pom.xml exec:java -Dexec.mainClass=com.apismith.tiktok.SingleUrl
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.AsyncRun -Dexec.args="start" compile exec:java
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.AsyncRun -Dexec.args="wait --run-id RUN_ID --max-wait 900" compile exec:java
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.CsvBatch -Dexec.args="--csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/java-csv-batch-results.jsonl --concurrency 2 --max-wait 900" compile exec:java
+mvn -f examples/java/pom.xml -Dexec.mainClass=com.apismith.tiktok.CsvBatch -Dexec.args="--csv sample-data/tiktok-video-urls.csv --journal sample-output/generated/java-csv-batch-results.jsonl --reconcile" compile exec:java
 ```
 
-You can also pass a URL directly:
+The default video URL is
+`https://www.tiktok.com/@carter.braydon/video/7647694374876319007`. Run
+creation sends one client-side POST attempt, not an exactly-once guarantee. If
+the result is unknown, check Apify Console before retrying; after a wait timeout
+continue with the same Run ID.
 
-```bash
-mvn -f examples/java/pom.xml exec:java -Dexec.mainClass=com.apismith.tiktok.SingleUrl -Dexec.args="https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
-```
-
-The full response is saved to:
-
-```text
-sample-output/generated/java-single-url-response.json
-```
+Offline tests: `mvn -o -f examples/java/pom.xml test` (requires cached Maven
+dependencies).

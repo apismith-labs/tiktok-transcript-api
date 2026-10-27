@@ -54,7 +54,7 @@ you need different tools later, create a new connector.
 
 ```json
 {
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
 }
 ```
 
@@ -64,7 +64,7 @@ you need different tools later, create a new connector.
 Use Apify MCP to run the Actor `apple_yang/tiktok-transcripts-scraper` with this input:
 
 {
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
 }
 
 After the Actor run finishes, retrieve the dataset output and return:

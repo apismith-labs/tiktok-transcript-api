@@ -1,254 +1,189 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/joho/godotenv"
 )
-
-const (
-	defaultActorID  = "apple_yang/tiktok-transcripts-scraper"
-	defaultVideoURL = "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
-	apiBaseURL      = "https://api.apify.com/v2"
-)
-
-type apiResponse struct {
-	Data runInfo `json:"data"`
-}
-
-type runInfo struct {
-	ID               string `json:"id"`
-	Status           string `json:"status"`
-	DefaultDatasetID string `json:"defaultDatasetId"`
-}
 
 func main() {
-	if err := runSingle(); err != nil {
+	args := os.Args[1:]
+	var err error
+	switch {
+	case len(args) > 0 && (args[0] == "start" || args[0] == "wait"):
+		err = runAsync(args, nil, os.Stdout)
+	case len(args) > 0 && args[0] == "batch":
+		err = runCSV(args[1:], nil, os.Stdout, "")
+	default:
+		err = runSingle(args, nil, os.Stdout, "")
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func runSingle() error {
-	repoRoot, err := findRepoRoot()
-	if err != nil {
-		return err
+func runSingle(args []string, api *API, out io.Writer, outputRoot string) error {
+	fs := flag.NewFlagSet("single_url", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	videoURL := fs.String("video-url", defaultVideoURL, "TikTok video URL")
+	maxWaitFlag := fs.String("max-wait", "900", "maximum Run wait in seconds (1-86400)")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("invalid command line: %w", err)
 	}
-	_ = godotenv.Load(filepath.Join(repoRoot, ".env"))
-
-	token, err := requireEnv("APIFY_TOKEN")
-	if err != nil {
-		return err
-	}
-	actorID := envOrDefault("APIFY_ACTOR_ID", defaultActorID)
-	videoURL := firstNonEmpty(argAt(1), os.Getenv("TIKTOK_VIDEO_URL"), defaultVideoURL)
-
-	client := &http.Client{Timeout: 10 * time.Minute}
-	fmt.Println("Actor ID:", actorID)
-	fmt.Println("Running request...")
-
-	run, err := startActorRun(client, token, actorID, videoURL)
-	if err != nil {
-		return err
-	}
-	if run.ID == "" {
-		return errors.New("Error: Actor run response did not include an id.")
-	}
-
-	finishedRun, err := waitForRun(client, token, run.ID)
-	if err != nil {
-		return err
-	}
-	if finishedRun.Status != "SUCCEEDED" {
-		return fmt.Errorf("Error: Actor run finished with status %s.", finishedRun.Status)
-	}
-	if finishedRun.DefaultDatasetID == "" {
-		return errors.New("Error: Actor run completed without a defaultDatasetId.")
-	}
-
-	items, err := fetchDatasetItems(client, token, finishedRun.DefaultDatasetID)
-	if err != nil {
-		return err
-	}
-	if len(items) == 0 {
-		return errors.New("Error: Actor returned an empty dataset.")
-	}
-
-	outputDir := filepath.Join(repoRoot, "sample-output", "generated")
-	outputFile := filepath.Join(outputDir, "go-single-url-response.json")
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
-		return err
-	}
-	output, err := json.MarshalIndent(items, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(outputFile, append(output, '\n'), 0o644); err != nil {
-		return err
-	}
-
-	text := firstString(items, "text")
-	fmt.Println("Output path:", outputFile)
-	fmt.Println("Items:", len(items))
-	fmt.Println("Title:", firstString(items, "title"))
-	fmt.Println("Creator:", firstString(items, "nickname"))
-	fmt.Println("Play count:", valueString(firstValue(items, "playCount")))
-	fmt.Println("Transcript characters:", len([]rune(text)))
-	if text != "" {
-		fmt.Println("Transcript preview:")
-		fmt.Println(truncateRunes(text, 500))
-	}
-	if errMsg := firstString(items, "errMsg"); errMsg != "" {
-		fmt.Println("errMsg:", errMsg)
-	}
-
-	return nil
-}
-
-func startActorRun(client *http.Client, token string, actorID string, videoURL string) (runInfo, error) {
-	actorIDForURL := strings.ReplaceAll(actorID, "/", "~")
-	url := fmt.Sprintf("%s/acts/%s/runs", apiBaseURL, actorIDForURL)
-	body, err := json.Marshal(map[string]string{"videoUrl": videoURL})
-	if err != nil {
-		return runInfo{}, err
-	}
-
-	var response apiResponse
-	if err := sendJSON(client, token, http.MethodPost, url, body, &response); err != nil {
-		return runInfo{}, err
-	}
-	return response.Data, nil
-}
-
-func waitForRun(client *http.Client, token string, runID string) (runInfo, error) {
-	for attempt := 0; attempt < 150; attempt++ {
-		url := fmt.Sprintf("%s/actor-runs/%s", apiBaseURL, runID)
-		var response apiResponse
-		if err := sendJSON(client, token, http.MethodGet, url, nil, &response); err != nil {
-			return runInfo{}, err
+	remaining := fs.Args()
+	videoURLSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "video-url" {
+			videoURLSet = true
 		}
-		if isFinished(response.Data.Status) {
-			return response.Data, nil
+	})
+	if len(remaining) > 1 || (len(remaining) == 1 && videoURLSet) {
+		return errors.New("usage: single_url [--video-url URL | URL] [--max-wait SECONDS]")
+	}
+	if len(remaining) == 1 {
+		*videoURL = remaining[0]
+	}
+	maxWait, err := parseMaxWait(*maxWaitFlag)
+	if err != nil {
+		return err
+	}
+	if err := validateVideoURL(*videoURL); err != nil {
+		return err
+	}
+	outputPath, err := singleOutputPath(outputRoot)
+	if err != nil {
+		return fmt.Errorf("output preflight failed before Run creation: %w", err)
+	}
+	if api == nil {
+		token := os.Getenv("APIFY_TOKEN")
+		if strings.TrimSpace(token) == "" {
+			return errors.New("APIFY_TOKEN is required in the environment")
 		}
-		time.Sleep(2 * time.Second)
+		api = NewAPI(token, nil)
 	}
-	return runInfo{}, errors.New("Error: Timed out waiting for Actor run to finish.")
-}
-
-func fetchDatasetItems(client *http.Client, token string, datasetID string) ([]map[string]any, error) {
-	url := fmt.Sprintf("%s/datasets/%s/items", apiBaseURL, datasetID)
-	var items []map[string]any
-	err := sendJSON(client, token, http.MethodGet, url, nil, &items)
-	return items, err
-}
-
-func sendJSON(client *http.Client, token string, method string, url string, body []byte, target any) error {
-	var reader io.Reader
-	if body != nil {
-		reader = bytes.NewReader(body)
-	}
-	request, err := http.NewRequest(method, url, reader)
+	fmt.Fprintln(out, "Actor:", actorDisplayName)
+	fmt.Fprintln(out, "Starting Run and waiting for completion...")
+	run, err := api.startRun(*videoURL)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return fmt.Errorf("Apify API request failed: %w", err)
+	fmt.Fprintln(out, "Run ID:", run.ID)
+	if flusher, ok := out.(interface{ Flush() error }); ok {
+		_ = flusher.Flush()
 	}
-	defer response.Body.Close()
-
-	responseBody, err := io.ReadAll(response.Body)
+	if file, ok := out.(*os.File); ok {
+		_ = file.Sync()
+	}
+	finished, err := api.waitForRun(run.ID, maxWait)
 	if err != nil {
 		return err
 	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("HTTP %d from Apify API: %s", response.StatusCode, string(responseBody))
+	if finished.Status != "SUCCEEDED" {
+		return fmt.Errorf("Actor Run finished with status %s", finished.Status)
 	}
-	if len(responseBody) == 0 {
-		return nil
+	if finished.DefaultDatasetID == "" {
+		return errors.New("Run succeeded without a default Dataset ID")
 	}
-	return json.Unmarshal(responseBody, target)
-}
-
-func isFinished(status string) bool {
-	return status == "SUCCEEDED" || status == "FAILED" || status == "TIMED-OUT" || status == "ABORTED"
-}
-
-func firstValue(items []map[string]any, key string) any {
-	for _, item := range items {
-		value, ok := item[key]
-		if ok && value != nil && value != "" {
-			return value
+	items, err := api.datasetItems(finished.DefaultDatasetID)
+	if err != nil {
+		return err
+	}
+	if err := writeJSON(outputPath, items); err != nil {
+		return fmt.Errorf("could not save Dataset Items: %w", err)
+	}
+	fmt.Fprintln(out, "Output path:", outputPath)
+	if failure := transcriptFailure(finished, items); failure != "" {
+		return errors.New(failure)
+	}
+	fmt.Fprintln(out, "Dataset Items:", len(items))
+	fmt.Fprintln(out, "Transcript:")
+	for _, raw := range items {
+		var item struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(raw, &item); err != nil {
+			return errors.New("Dataset Item is not a valid transcript object")
+		}
+		if strings.TrimSpace(item.Text) != "" {
+			fmt.Fprintln(out, item.Text)
 		}
 	}
 	return nil
 }
 
-func firstString(items []map[string]any, key string) string {
-	value, ok := firstValue(items, key).(string)
-	if !ok {
-		return ""
-	}
-	return value
-}
-
-func valueString(value any) string {
-	if value == nil {
-		return ""
-	}
-	return fmt.Sprint(value)
-}
-
-func truncateRunes(value string, limit int) string {
-	runes := []rune(value)
-	if len(runes) <= limit {
-		return value
-	}
-	return string(runes[:limit])
-}
-
-func requireEnv(name string) (string, error) {
-	value := os.Getenv(name)
-	if strings.TrimSpace(value) == "" {
-		return "", fmt.Errorf("Error: %s is required. Set it in .env or your environment.", name)
-	}
-	return value, nil
-}
-
-func envOrDefault(name string, defaultValue string) string {
-	value := os.Getenv(name)
-	if strings.TrimSpace(value) == "" {
-		return defaultValue
-	}
-	return value
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
+// singleOutputPath resolves and verifies the destination before creating a Run.
+// If this example is copied without the repository markers, it falls back to
+// the current working directory's sample-output/generated folder.
+func singleOutputPath(outputRoot string) (string, error) {
+	base := outputRoot
+	if base == "" {
+		root, err := findRepoRoot()
+		if err == nil {
+			base = root
+		} else {
+			base, err = os.Getwd()
+			if err != nil {
+				return "", err
+			}
 		}
 	}
-	return ""
+	path := filepath.Join(base, "sample-output", "generated", "go-single-url-response.json")
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if err := preflightOutputFile(absolute); err != nil {
+		return "", err
+	}
+	return absolute, nil
 }
 
-func argAt(index int) string {
-	if len(os.Args) <= index {
-		return ""
+func preflightOutputFile(path string) error {
+	info, err := os.Stat(path)
+	if err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("output path is a directory: %s", path)
+		}
+		file, openErr := os.OpenFile(path, os.O_WRONLY, 0)
+		if openErr != nil {
+			return openErr
+		}
+		return file.Close()
 	}
-	return os.Args[index]
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	directory := filepath.Dir(path)
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return err
+	}
+	testFile, err := os.CreateTemp(directory, ".go-single-output-preflight-*")
+	if err != nil {
+		return err
+	}
+	name := testFile.Name()
+	if err := testFile.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	return os.Remove(name)
+}
+
+func writeJSON(path string, value any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
 func findRepoRoot() (string, error) {
@@ -257,7 +192,7 @@ func findRepoRoot() (string, error) {
 		return "", err
 	}
 	for {
-		if fileExists(filepath.Join(current, ".env.example")) && fileExists(filepath.Join(current, "sample-data", "tiktok-video-urls.csv")) {
+		if fileExists(filepath.Join(current, "sample-data", "tiktok-video-urls.csv")) && fileExists(filepath.Join(current, "examples", "go", "go.mod")) {
 			return current, nil
 		}
 		parent := filepath.Dir(current)
@@ -266,7 +201,7 @@ func findRepoRoot() (string, error) {
 		}
 		current = parent
 	}
-	return "", errors.New("Error: Could not locate repository root.")
+	return "", errors.New("could not locate repository root")
 }
 
 func fileExists(path string) bool {

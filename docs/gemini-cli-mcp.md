@@ -11,6 +11,8 @@ configuration vary by CLI and agent framework.
 Use this path when you want a dependable terminal workflow without relying on
 MCP support.
 
+The Python example requires Python 3.11 or newer.
+
 1. Configure `.env` with your Apify token:
 
    ```bash
@@ -20,7 +22,7 @@ MCP support.
 2. Run one of the examples:
 
    ```bash
-   python examples/python/single_url.py
+   python3 examples/python/single_url.py
    ```
 
 3. Open the generated output:
@@ -32,7 +34,7 @@ MCP support.
 4. Preview the transcript text from the saved JSON:
 
    ```bash
-   python - <<'PY'
+   python3 - <<'PY'
    import json
    from pathlib import Path
 
@@ -105,6 +107,6 @@ preview, ask the client to retrieve the full dataset output before analysis.
 
 ```json
 {
-  "videoUrl": "https://www.tiktok.com/@foxfamilyguy/video/7587841579029679392"
+  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
 }
 ```
