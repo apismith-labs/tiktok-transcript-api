@@ -1,137 +1,99 @@
-# Cursor and VS Code MCP Setup for TikTok Transcript API
+# Cursor and VS Code with Apify MCP
 
-This guide shows practical MCP setup patterns for using the TikTok transcripts
-Actor inside Cursor, VS Code, or another AI coding environment.
+These are separate client configurations for the fixed TikTok Actor
+[`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
+Do not copy Cursor's `mcpServers` block into VS Code's native `servers` file.
+Apify's hosted endpoint is Streamable HTTP and uses OAuth when supported.
+See the [MCP compatibility matrix](mcp-compatibility.md) for verification
+scope across clients.
 
-This repository does not include a ready-made editor extension. Use these
-configuration examples manually in an MCP-capable editor or AI coding client.
+The URL below enables Apify's `actors`, `runs`, and `storage` tool categories
+plus the specific Actor tool. Categories expose multiple operations; inspect
+the tools discovered by your client. See [Apify MCP tool selection and result
+retrieval](apify-mcp.md#calling-the-actor-and-reading-its-output).
 
-For the central MCP reference, see [Apify MCP setup](apify-mcp.md).
+## Cursor
 
-## Cursor setup
-
-1. Open the project in Cursor.
-2. Create `.cursor/mcp.json` if it does not exist.
-3. Paste one of the config options below.
-4. Restart Cursor or reconnect MCP tools.
-5. Confirm the Apify tool appears.
-6. Run the test prompt.
-
-The Apify MCP UI configurator at [https://mcp.apify.com](https://mcp.apify.com)
-may provide one-click Cursor setup when available.
-
-### Hosted OAuth config
+As checked on 2026-10-27, Cursor documents MCP configuration in the project
+file `.cursor/mcp.json` or the user-level `~/.cursor/mcp.json`. The JSON uses
+the top-level `mcpServers` object. You can also add a server from Cursor's MCP
+settings UI; labels may vary with the Cursor release. See the current
+[Cursor MCP guide](https://prod.cursor.com/docs/mcp).
 
 ```json
 {
   "mcpServers": {
     "apify": {
-      "url": "https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper"
+      "url": "https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper"
     }
   }
 }
 ```
 
-After saving the file, restart Cursor or reconnect MCP tools. Sign in to Apify
-through OAuth if prompted.
+Save the file, reconnect the server in Cursor, and complete OAuth if prompted.
+For hosted MCP, no local Node.js is required. Do not add a token directly to a
+project file.
 
-### Hosted Bearer token config
+## VS Code with GitHub Copilot
 
-Use this only in secure local configuration:
+Current VS Code guidance is to run **MCP: Add Server** from the Command
+Palette, choose **HTTP**, enter the Apify endpoint, and follow the
+authentication prompt. The guided flow can write a global Copilot config or a
+workspace config depending on your chosen destination and installed harness.
+
+The native VS Code format uses `servers` and a `type`; for the current native
+workspace file `.vscode/mcp.json`, the equivalent remote config is:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "apify": {
-      "url": "https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper",
-      "headers": {
-        "Authorization": "Bearer <APIFY_TOKEN>"
-      }
+      "type": "http",
+      "url": "https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper"
     }
   }
 }
 ```
 
-Do not commit a token-bearing `.cursor/mcp.json`.
+If you instead use a portable Copilot configuration, VS Code documents a
+top-level `mcpServers` object (for example, `.mcp.json` for compatible
+workspace use). Portable configuration does not support VS Code input
+variables or environment files. Keep authentication in the client sign-in
+flow or the supported secure configuration for the chosen harness; do not
+paste a real token into a shared file. The current [VS Code guide](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
+explains destinations and format differences.
 
-### Local stdio fallback
+## Run, retrieve, then analyze
 
-```json
-{
-  "mcpServers": {
-    "apify": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@apify/actors-mcp-server@latest",
-        "--tools",
-        "apple_yang/tiktok-transcripts-scraper"
-      ],
-      "env": {
-        "APIFY_TOKEN": "<APIFY_TOKEN>"
-      }
-    }
-  }
-}
-```
-
-Restart Cursor after changing MCP configuration.
-
-## Cursor test prompt
+Ask the client to call the Actor with only one input field:
 
 ```text
-Use Apify MCP to run the Actor `apple_yang/tiktok-transcripts-scraper` with this input:
-
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
-
-Retrieve the dataset output and generate a TypeScript interface for the fields returned.
+{"videoUrl":"https://www.tiktok.com/@carter.braydon/video/7647694374876319007"}
 ```
 
-## VS Code setup
+The Actor's `call-actor` flow can return Run status and storage IDs rather than
+Dataset items. Use the Run ID to check status, then the Dataset ID to retrieve
+Dataset Items. Inspect the actual result: Run `SUCCEEDED`, non-empty
+transcript text, and an empty `errMsg` are separate checks. Requests for a
+summary or TypeScript interface are analysis of returned fields, not a promise
+that the Actor emits a particular optional field. See the [public Output
+schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema).
 
-MCP support in VS Code depends on the installed AI extension or client. For
-GitHub Copilot agent mode or another MCP-capable extension, use this generic
-path:
+If the tool is missing, inspect the client's MCP tool list, confirm the URL
+and OAuth state, and reconnect. If output is truncated, retrieve the same
+Dataset ID again. If a Run is still active, check the same Run ID; if Run
+creation is ambiguous, check Apify Console before retrying.
 
-1. Install or enable an MCP-capable AI extension.
-2. Open Command Palette.
-3. Search for an MCP user configuration command, such as
-   `MCP: Open User Configuration`, if available.
-4. Add the same hosted OAuth, hosted Bearer token, or local stdio config from
-   the Cursor section.
-5. Save the config.
-6. Restart or reload VS Code.
-7. Open a new agent chat.
-8. Test with the prompt below.
+Review the Actor's [current pricing](https://apify.com/apple_yang/tiktok-transcripts-scraper/pricing)
+before running it. No free-use or fixed-cost promise is made here.
 
-Do not assume every VS Code installation supports MCP by default. The exact
-configuration path depends on the extension or AI client.
+## Validation status (checked 2026-10-27)
 
-## VS Code test prompt
-
-```text
-Use Apify MCP to run `apple_yang/tiktok-transcripts-scraper` with this TikTok URL:
-
-https://www.tiktok.com/@carter.braydon/video/7647694374876319007
-
-Return the transcript text, title, creator nickname, duration, play count, and any `errMsg`.
-```
-
-## What developers can build after MCP works
-
-- Content analysis tool
-- Transcript database
-- API wrapper
-- Internal research workflow
-- AI coding assistant-generated scripts
-- Tests based on saved Actor output
-- Schema generation for transcript and metadata records
-
-## Troubleshooting
-
-- If tools do not appear, restart the editor and confirm the MCP config path.
-- If hosted auth fails, reconnect OAuth or switch to local stdio.
-- If local stdio fails, confirm Node.js and `npx` are available.
-- If output is incomplete, ask the agent to retrieve the full dataset output.
+- **Official docs:** Cursor's `mcpServers` locations and VS Code's MCP wizard,
+  native `servers` schema, and portable-format distinction were reviewed in
+  the linked client documentation.
+- **Static configuration:** the JSON snippets were checked against those
+  published formats; neither editor was launched.
+- **Repository offline tests:** test the language API examples, not Cursor or
+  VS Code MCP configuration or authentication.
+- **Real MCP connection / Actor Run:** not verified.

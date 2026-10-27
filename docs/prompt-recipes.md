@@ -13,7 +13,7 @@ Assume your application passes some or all of these fields:
 - `{{commentCount}}`
 - `{{diggCount}}`
 - `{{shareCount}}`
-- `{{sourceUrl}}`
+- `{{url}}` (the public Output schema field, when present)
 
 ## Summarize a TikTok video
 

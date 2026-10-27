@@ -26,6 +26,8 @@ brief, sentiment note, subtitle draft, or database record.
 - Cursor and VS Code: use [Cursor and VS Code MCP setup](cursor-vscode-mcp.md).
 - Gemini CLI or terminal workflows: use
   [Gemini CLI and terminal AI workflows](gemini-cli-mcp.md).
+- Check client-specific setup and what has actually been verified in the
+  [MCP compatibility matrix](mcp-compatibility.md).
 
 ## Use cases
 

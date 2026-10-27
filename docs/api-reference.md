@@ -40,8 +40,10 @@ timeout, use the same Run ID to continue reading status.
 ## Public Output schema
 
 The [Actor Output schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema)
-currently lists these fields and types. Values are generated from TikTok data
-and can vary by video and run; handle errors and empty transcript values.
+was checked on 2026-10-27 and currently lists the following fields and types.
+The schema describes the declared output shape; it is not a guarantee that
+every Run produces usable values. Values can be empty or unavailable, so
+handle missing data and errors.
 
 | Field | Schema type | Notes |
 | --- | --- | --- |
@@ -55,7 +57,7 @@ and can vary by video and run; handle errors and empty transcript values.
 | `collectCount` | integer | Collection count. |
 | `duration` | number | Video duration. |
 | `text` | string | Transcript text; may be empty when transcript is unavailable. |
-| `segments` | object array | Timestamped transcript segments. An observed item has `start`, `end`, and `text`; check current output before relying on additional properties or units. |
+| `segments` | object array | The public schema declares an array of objects but does not declare item properties here. `start`, `end`, and `text` have appeared in an observed result; treat those child fields and any timing units as unverified until confirmed from the Dataset you use. |
 | `nickname` | string | Creator nickname. |
 | `avatarUri` | string | Avatar URI. |
 | `signature` | string | Creator signature. |
@@ -66,9 +68,15 @@ and can vary by video and run; handle errors and empty transcript values.
 | `errMsg` | string | Actor processing error text; an empty value does not replace Run/Dataset checks. |
 | `timestamp` | string | Fetch timestamp. |
 
-`videoUrl` is the Actor input field, not a guaranteed output field.
-`audioUrl` is not in the current public Output schema. Do not make application
-logic depend on either as a Dataset output field.
+`videoUrl` is the Actor input field, not a guaranteed output field. `url` is
+the field currently listed by the output schema. `audioUrl` is not in the
+public Output schema. Do not make application logic depend on `videoUrl` or
+`audioUrl` as Dataset fields.
+
+The schema and one observed response are different evidence: check the Dataset
+from your own Run before depending on optional values. The repository's
+offline tests validate client behavior with fake responses; they do not
+validate a live Actor response.
 
 ## Inspect a generated Dataset
 

@@ -1,112 +1,93 @@
-# Gemini CLI and Terminal AI Workflows
+# Gemini CLI and Apify MCP
 
-This guide gives two practical paths for using TikTok transcript results in
-Gemini CLI or a similar command-line AI workflow.
+This guide connects Gemini CLI to Apify's hosted MCP service for the fixed
+Actor [`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
+The hosted endpoint is Streamable HTTP, not SSE; do not append `/sse`.
+See the [MCP compatibility matrix](mcp-compatibility.md) for verification
+scope across clients.
 
-This repository does not provide a custom Gemini CLI extension. MCP support and
-configuration vary by CLI and agent framework.
+## Hosted Streamable HTTP setup
 
-## Path A: reliable local workflow without MCP
-
-Use this path when you want a dependable terminal workflow without relying on
-MCP support.
-
-The Python example requires Python 3.11 or newer.
-
-1. Configure `.env` with your Apify token:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Run one of the examples:
-
-   ```bash
-   python3 examples/python/single_url.py
-   ```
-
-3. Open the generated output:
-
-   ```text
-   sample-output/generated/python-single-url-response.json
-   ```
-
-4. Preview the transcript text from the saved JSON:
-
-   ```bash
-   python3 - <<'PY'
-   import json
-   from pathlib import Path
-
-   path = Path("sample-output/generated/python-single-url-response.json")
-   items = json.loads(path.read_text(encoding="utf-8"))
-   print((items[0].get("text") or "")[:2000])
-   PY
-   ```
-
-5. Copy the full JSON, the first dataset item, or just the `text` field into
-   Gemini CLI or another command-line AI tool.
-
-### Copyable prompt
-
-```text
-Analyze this TikTok transcript JSON.
-
-Return:
-- transcript summary
-- title
-- creator nickname
-- opening hook
-- content structure
-- product or brand mentions
-- sentiment
-- suggested categories
-- any missing or uncertain fields
-
-JSON:
-{{paste_dataset_json_here}}
-```
-
-## Path B: MCP-capable Gemini or command-line AI environment
-
-If your Gemini CLI setup or command-line AI framework supports MCP server
-configuration, use the hosted or local Apify MCP setup from
-[Apify MCP setup](apify-mcp.md).
-
-Hosted MCP URL:
-
-```text
-https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper
-```
-
-Local stdio command pattern:
+As checked on 2026-10-27, Gemini CLI's official configuration reference
+distinguishes `httpUrl` for Streamable HTTP, `url` for SSE, and `command` for
+stdio. The user configuration file is `~/.gemini/settings.json` (or the
+settings file for your chosen Gemini CLI profile). Add this to its top-level
+`mcpServers` object:
 
 ```json
 {
   "mcpServers": {
     "apify": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@apify/actors-mcp-server@latest",
-        "--tools",
-        "apple_yang/tiktok-transcripts-scraper"
-      ],
-      "env": {
-        "APIFY_TOKEN": "<APIFY_TOKEN>"
-      }
+      "httpUrl": "https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper"
     }
   }
 }
 ```
 
-Exact setup depends on the CLI or agent framework. If MCP tool output is only a
-preview, ask the client to retrieve the full dataset output before analysis.
+Apify supports OAuth for the hosted endpoint. Complete the authentication
+flow if Gemini CLI prompts you; follow the current [Gemini MCP OAuth guide](https://geminicli.com/docs/tools/mcp-server/#oauth-support-for-remote-mcp-servers)
+if your installation needs additional OAuth settings. If using a fixed
+Bearer token instead, configure it only using a supported secure credential
+mechanism for your Gemini CLI version; do not paste it into a shared
+`settings.json`.
 
-## Actor input
+The Apify `tools` selector includes actor, run, and storage categories plus
+the TikTok Actor tool. Categories expose multiple operations, and the exact
+tool list can change. The URL only enables tools; it does not prove they are
+connected. See [Apify MCP result retrieval](apify-mcp.md#calling-the-actor-and-reading-its-output).
+
+## Other transports
+
+Gemini CLI's documented `mcpServers` fields are transport-specific:
+
+| Transport | Field | Example endpoint/process |
+| --- | --- | --- |
+| Streamable HTTP | `httpUrl` | `https://mcp.apify.com?...` |
+| SSE | `url` | An actual SSE endpoint, if a server provides one |
+| stdio | `command`, optional `args` / `env` | A local process |
+
+Do not configure Apify's current hosted endpoint under `url`: Gemini CLI would
+interpret that field as SSE. Local stdio is optional; Apify's docs disagree
+about the minimum Node.js version, so use Node.js 22+ conservatively and check
+the [dated Apify MCP runtime note](apify-mcp.md#local-stdio-option). This local
+runtime requirement does not apply to hosted HTTP.
+
+## Run and inspect the Dataset
+
+Use only the Actor's public input:
 
 ```json
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
+{"videoUrl":"https://www.tiktok.com/@carter.braydon/video/7647694374876319007"}
 ```
+
+Prompt Gemini CLI to run the Actor, retain the Run ID, check status, and fetch
+Dataset Items with the Dataset ID. Apify's `call-actor` returns Run status and
+storage identifiers rather than Dataset items; use available Run and storage
+reader tools. If those tools are not listed, adjust the selected categories
+and reconnect or use this repository's code examples.
+
+```text
+Run apple_yang/tiktok-transcripts-scraper with only the videoUrl above.
+Check the Run, then retrieve its Dataset Items. Return raw fields actually
+present, including text, segments, and errMsg where present. A SUCCEEDED Run
+does not guarantee a usable transcript; do not fabricate absent fields.
+```
+
+The field names come from the Actor's [current public Output schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema).
+If the result is truncated, request the same Dataset ID again. If the Run is
+still active, check the same Run ID; if creation is uncertain, inspect Apify
+Console before retrying or starting another Run.
+
+Review [current Actor pricing](https://apify.com/apple_yang/tiktok-transcripts-scraper/pricing)
+before calling it; no free-use or fixed-cost promise is made here.
+
+## Validation status (checked 2026-10-27)
+
+- **Official docs:** Gemini CLI HTTP/SSE/stdio field names and settings schema
+  reviewed in the [MCP server reference](https://geminicli.com/docs/tools/mcp-server/)
+  and [configuration reference](https://geminicli.com/docs/reference/configuration/).
+- **Static configuration:** `httpUrl` and Actor input were compared with the
+  current references; Gemini CLI was not launched.
+- **Repository offline tests:** cover language API clients, not Gemini MCP
+  configuration or OAuth.
+- **Real MCP connection / Actor Run:** not verified.

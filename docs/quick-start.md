@@ -3,10 +3,11 @@
 This repository contains integration examples for the fixed Apify Actor
 [`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
 You can also open the [Actor in Apify Console](https://apify.com/apple_yang/tiktok-transcripts-scraper)
-to try it without this repository.
+to try it without this repository. Review the Actor's [current pricing](https://apify.com/apple_yang/tiktok-transcripts-scraper/pricing)
+before starting a Run.
 
-Each Actor Run accepts one `videoUrl` string. The examples use this tested
-default video unless a CLI URL override is provided:
+Each Actor Run accepts one `videoUrl` string. The examples use this default
+example video unless a CLI URL override is provided:
 
 ```text
 https://www.tiktok.com/@carter.braydon/video/7647694374876319007
@@ -14,8 +15,12 @@ https://www.tiktok.com/@carter.braydon/video/7647694374876319007
 
 ## 1. Configure the token
 
-The only credential needed by the examples is `APIFY_TOKEN`. To prepare the
-root `.env` file used by Python, Node.js, and Java:
+You need an Apify account. Create an API token in Apify Console under
+**Settings → API & Integrations**; see Apify's [API getting-started guide](https://docs.apify.com/api/v2/getting-started).
+Set the token as `APIFY_TOKEN`. Never commit a real token or paste it into
+chats or AI assistant tools; do not publish or share it.
+
+To prepare the root `.env` file used by Python, Node.js, and Java:
 
 ```bash
 cp .env.example .env

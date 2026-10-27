@@ -1,42 +1,64 @@
-# Claude Desktop MCP Setup for TikTok Transcript API
+# Claude and Apify MCP
 
-This guide shows how to configure Claude Desktop to use the TikTok transcripts
-Actor through Apify MCP.
+Connect Claude to Apify's hosted MCP server to run the fixed Actor
+[`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
+Claude Web/Desktop remote connectors and Claude Code are separate setup paths;
+do not use a CLI command as a Desktop configuration file.
+See the [MCP compatibility matrix](mcp-compatibility.md) for verification
+scope across clients.
 
-This repository does not include a ready-made Claude integration. Use these
-steps to configure Claude Desktop or another Claude-compatible MCP client
-manually.
+## Claude Web or Desktop: remote connector
 
-Exact Claude Desktop UI and remote MCP support can vary by version, account,
-and rollout status.
+As checked on 2026-10-27, Anthropic's help page lists remote custom connectors
+for Claude Free, Pro, Max, Team, and Enterprise; Free is limited to one custom
+connector. For Team/Enterprise, an Owner or Primary Owner must add the
+organization connector; users then connect and enable it. Remote connections
+are made from Anthropic's cloud infrastructure, so the endpoint must be
+publicly reachable. See the current [Anthropic connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
+for current plan and role rules.
 
-For the central MCP reference, see [Apify MCP setup](apify-mcp.md).
-
-## Recommended remote connector setup
-
-Use this path when Claude Desktop supports remote MCP connectors.
-
-1. Open Claude Desktop.
-2. Add a custom connector or MCP server.
-3. Use this remote MCP server URL:
+1. In Claude Web, Claude Desktop, or Cowork, open **Customize > Connectors**.
+   Team/Enterprise owners first add it under **Organization settings >
+   Connectors**.
+2. Add a custom connector and enter:
 
    ```text
-   https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper
+   https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper
    ```
 
-4. Sign in to Apify through OAuth if prompted.
-5. Save the connector.
-6. Restart Claude Desktop if the tools do not appear immediately.
-7. Open a new chat and confirm Apify tools are available.
+3. Choose OAuth/authentication as offered, finish sign-in, then enable the
+   connector in the conversation.
 
-Exact labels may vary by Claude Desktop version and MCP support.
+The endpoint is Apify hosted Streamable HTTP; this path needs no local Node.js.
+For a configured local MCP server in Claude Desktop, use the separate Desktop
+configuration mechanism described below and in Anthropic's [Desktop guide](https://support.anthropic.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
-## Alternative local stdio setup
+## Claude Code: terminal setup
 
-Use this path when Claude Desktop expects a local MCP server configuration.
+Claude Code uses its own CLI and MCP scopes. Run this in a terminal where
+Claude Code is available:
 
-If your Claude Desktop environment uses a local MCP configuration file, add a
-server like this:
+```bash
+claude mcp add --transport http apify 'https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper'
+```
+
+This adds a remote HTTP server at the CLI's default local scope. Add
+`--scope user` or `--scope project` only if you intend that scope; project
+servers use a repository `.mcp.json` and require workspace approval. Verify
+the configured server with `claude mcp get apify`, and inspect connection
+status with `claude mcp list` or `/mcp`. Claude Code can handle the server's
+OAuth flow. Bearer credentials, if used, should be entered through a secure
+header mechanism, not committed in `.mcp.json`.
+
+## Claude Desktop: local stdio alternative
+
+Use local stdio only if you specifically need a locally launched server. The
+Desktop configuration uses an `mcpServers` JSON object. As checked on
+2026-10-27, Apify's troubleshooting docs say Node.js 18+, while its public
+package manifest declares `engines.node >=22.0.0`; the npm listing and public
+manifest do not currently identify the same package revision. Use Node.js 22+
+for local stdio based on the manifest; hosted remote MCP does not need local
+Node.js. See the [source comparison](apify-mcp.md#local-stdio-option).
 
 ```json
 {
@@ -47,7 +69,7 @@ server like this:
         "-y",
         "@apify/actors-mcp-server@latest",
         "--tools",
-        "apple_yang/tiktok-transcripts-scraper"
+        "actors,runs,storage,apple_yang/tiktok-transcripts-scraper"
       ],
       "env": {
         "APIFY_TOKEN": "<APIFY_TOKEN>"
@@ -57,85 +79,61 @@ server like this:
 }
 ```
 
-This requires Node.js 18 or newer and `npx` on your machine. Do not commit
-configuration files that contain a real token.
+`<APIFY_TOKEN>` is a placeholder; do not assume Claude Desktop expands
+`${APIFY_TOKEN}`. Replace it or inject the secret only through a secure method
+documented for your Claude Desktop version and operating system. Prefer the
+hosted OAuth option above when available. Do not put a real token in a shared
+or committed config file. See Anthropic's [Desktop guide](https://support.anthropic.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop)
+for current configuration details.
 
-Check local requirements:
+## Run and read output
 
-```bash
-node -v
-npx -v
-```
-
-## Verify the connection
-
-1. Restart Claude Desktop if needed.
-2. Open a new chat.
-3. Confirm Apify tools are available.
-4. Ask Claude to run the Actor with the sample TikTok URL.
-5. Ask Claude to retrieve the full dataset output if the first response is only
-   a preview.
-
-## Actor input
+The only Actor input is one `videoUrl`:
 
 ```json
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
+{"videoUrl":"https://www.tiktok.com/@carter.braydon/video/7647694374876319007"}
 ```
 
-## Ready-to-copy Claude prompt
+Ask Claude to invoke the Actor, retain the returned Run ID, check that Run's
+status, and read Dataset Items using the returned Dataset ID. Apify's
+`call-actor` may return status and storage IDs rather than Dataset contents;
+use the available Run and Dataset reader tools. See [Apify MCP tool details](apify-mcp.md#calling-the-actor-and-reading-its-output).
 
 ```text
-Use Apify MCP to run `apple_yang/tiktok-transcripts-scraper` with this input:
-
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
-
-After the dataset output is available, analyze the TikTok transcript and return:
-- transcript text
-- title
-- creator nickname
-- opening hook
-- content structure
-- recurring themes
-- audience pain points or interests
-- duration
-- play count
-- any `errMsg`
+Run apple_yang/tiktok-transcripts-scraper with only the videoUrl shown above.
+Read the completed Run's Dataset Items and report the fields actually present,
+especially text, segments, and errMsg. Separate any summary or opening-hook
+analysis as your own analysis, and do not invent absent Actor fields.
 ```
 
-## Troubleshooting
+The fields are based on the Actor's [public Output schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema).
+Run `SUCCEEDED` does not prove the Dataset or transcript is non-empty. Check
+the actual items and `errMsg`.
 
-### Tools do not load
+## Troubleshooting and cost
 
-- Confirm the MCP config is valid JSON.
-- Restart Claude Desktop.
-- Confirm the `tools` value is exactly `apple_yang/tiktok-transcripts-scraper`.
+- **Connector/tool missing:** check its client-specific scope, workspace
+  approval, selected Apify tools, then reconnect.
+- **Authentication/network failure:** complete OAuth again and ensure the
+  hosted endpoint is reachable from the public internet. A local-only URL is
+  not reachable from Anthropic's cloud connector.
+- **Run still active:** check the same Run ID again; do not launch another Run
+  because a wait ended.
+- **Creation result unknown:** inspect Apify Console before retrying. One
+  client request is not a server-side exactly-once guarantee.
+- **Truncated/empty output:** retrieve the same Dataset Items again and report
+  Run, Dataset, `text`, and `errMsg` states separately.
 
-### OAuth or authentication fails
+Review the Actor's [current pricing](https://apify.com/apple_yang/tiktok-transcripts-scraper/pricing)
+before a call. The current price can change; this guide does not promise free
+use or a fixed charge.
 
-- Reconnect the Apify account.
-- Confirm you have access to the Actor.
-- For local stdio, confirm `APIFY_TOKEN` is set in the MCP config.
+## Validation status (checked 2026-10-27)
 
-### Local stdio cannot find Node.js
-
-- Install Node.js.
-- Confirm `npx` works in your terminal.
-- Use hosted Apify MCP if your Claude environment supports remote servers.
-
-### Actor run takes too long
-
-- Ask Claude to check the Actor run status again.
-- Try another public TikTok URL.
-- Inspect the run in Apify Console if a run ID is available.
-
-### Dataset output is truncated
-
-Use a follow-up prompt:
-
-```text
-Retrieve the full dataset output for the Actor run. Show the raw fields before analysis.
-```
+- **Official docs:** remote connectors, plan/organization roles, network path,
+  and Claude Code commands/scopes reviewed in the Anthropic links above.
+- **Static configuration:** the remote URL, CLI command, and stdio JSON shape
+  were checked against current docs; no Claude client was launched.
+- **Repository offline tests:** cover the language API clients, not Claude
+  connector discovery, OAuth, or Claude Code MCP startup.
+- **Real MCP connection / Actor Run:** not verified.

@@ -1,131 +1,115 @@
-# ChatGPT MCP Setup for TikTok Transcript API
+# ChatGPT and Apify MCP
 
-This guide shows how to manually configure ChatGPT to use the TikTok transcripts
-Actor through Apify MCP.
+This guide connects ChatGPT to Apify's hosted MCP server for the fixed Actor
+[`apple_yang/tiktok-transcripts-scraper`](https://apify.com/apple_yang/tiktok-transcripts-scraper).
+This repository does not include a ChatGPT app, Custom GPT Action, hosted
+backend, or MCP server. If your ChatGPT workspace cannot add custom MCP
+servers, use one of the [repository code examples](quick-start.md).
+See the [MCP compatibility matrix](mcp-compatibility.md) for verification
+scope across clients.
 
-This repository does not directly configure ChatGPT or provide a ready-made
-ChatGPT connector. This is a manual configuration guide for accounts where MCP
-or custom connectors are available.
+## Availability and setup
 
-## Before you start
+As checked on 2026-10-27, OpenAI's current help page says custom MCP server
+connections with full MCP support are available on ChatGPT Business and
+Enterprise/Edu on the web. ChatGPT Pro can connect to custom MCP servers only
+with read/fetch permissions; this is enough to connect and retrieve permitted
+data, but not to call an Actor or perform write/modify actions. This example
+requires the Apify `call-actor` tool to create a Run, so Pro's read/fetch-only
+access does not provide the full workflow described here. Business creation
+and publishing are limited to admins/owners. Enterprise/Edu admins and owners
+can create and test connections; admins can grant selected members permission
+to create them, while only admins/owners can publish. These plan and role
+rules are dynamic; consult [OpenAI's current help page](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
+for changes.
 
-- ChatGPT account with Developer Mode or custom connectors available
-- Apify account
-- Apify MCP connection
-- Access to the Actor `apple_yang/tiktok-transcripts-scraper`
-- Public TikTok video URL
-
-Availability can depend on account plan, workspace settings, admin permissions,
-region, and rollout status. If the create option is not visible, Developer Mode
-may need to be enabled or your account may not have access yet.
-
-For the central MCP reference, see [Apify MCP setup](apify-mcp.md).
-
-## Step-by-step setup
-
-1. Open ChatGPT settings.
-2. Go to Apps, Apps & Connectors, or the equivalent connector area for your
-   account.
-3. Create a new custom connector.
-4. Fill in the connector fields:
-
-   - Name: `apify-tiktok-transcripts`
-   - Description: `Run the TikTok transcripts Apify Actor and retrieve transcript output.`
-   - MCP Server URL: `https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper`
-   - Authentication: OAuth, when available
-
-5. If the UI asks for the MCP server URL separately, use:
+1. In ChatGPT web, open **Plugins**, select **+**, then **Add custom MCP
+   server**.
+2. Give the connection a name such as `Apify TikTok transcripts`.
+3. Enter this public HTTPS endpoint:
 
    ```text
-   https://mcp.apify.com?tools=apple_yang/tiktok-transcripts-scraper
+   https://mcp.apify.com?tools=actors,runs,storage,apple_yang/tiktok-transcripts-scraper
    ```
 
-6. Use OAuth if available.
-7. Authorize Apify in the browser when prompted.
-8. Start a new chat.
-9. Add or select the connector.
-10. Run the test prompt below.
+4. Select the authentication method offered for the Apify server. Prefer its
+   OAuth flow. Review the risk notice and create the connection.
+5. Review the discovered tools, then enable the connector in the conversation.
 
-Exact ChatGPT UI labels may vary by account, workspace, and feature rollout.
-ChatGPT may not allow changing selected MCP tools after connector creation. If
-you need different tools later, create a new connector.
-
-## Actor input
-
-```json
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
-```
+The endpoint uses Apify's hosted Streamable HTTP service. It does not require
+local Node.js. The `tools` selector enables categories as well as the specified
+Actor tool; it does not promise a single exposed operation. For tool behavior
+and the separate Run/Dataset retrieval steps, see [Apify MCP setup](apify-mcp.md).
 
 ## Test prompt
 
 ```text
-Use Apify MCP to run the Actor `apple_yang/tiktok-transcripts-scraper` with this input:
-
-{
-  "videoUrl": "https://www.tiktok.com/@carter.braydon/video/7647694374876319007"
-}
-
-After the Actor run finishes, retrieve the dataset output and return:
-
-- transcript text
-- title
-- creator nickname
-- duration
-- play count
-- any `errMsg`
+Use the Apify MCP tools to run apple_yang/tiktok-transcripts-scraper with only:
+{"videoUrl":"https://www.tiktok.com/@carter.braydon/video/7647694374876319007"}
+Wait for that Run, then read its Dataset Items using the returned Dataset ID.
+Report the available raw fields among text, segments, and errMsg. Do not invent
+missing fields, and distinguish Run status from transcript availability.
 ```
 
-## What to ask ChatGPT after extraction
+The URL above is an illustrative documentation example; it does not identify
+the input used in the recorded MCP verification.
 
-After ChatGPT retrieves the transcript output, ask for tasks such as:
-
-- Summarize the transcript.
-- Extract the opening hook.
-- Classify the content by topic or format.
-- Identify product or brand mentions.
-- Generate structured insights as JSON.
-- Turn the transcript into a content brief.
-- Compare the transcript with other saved outputs.
+The prompt asks for output fields listed in the Actor's
+[public Output schema](https://apify.com/apple_yang/tiktok-transcripts-scraper/output-schema).
+Any summary, hook analysis, classification, or JSON synthesis is ChatGPT's
+analysis of the retrieved Dataset, not an Actor output field. Check the actual
+Dataset item: a `SUCCEEDED` Run does not guarantee non-empty transcript text.
 
 ## Troubleshooting
 
-### Connector not visible
+- **No custom MCP option:** verify workspace plan and permissions with an
+  administrator; otherwise use the repository's cURL or language examples.
+- **No Apify tools found:** reconnect and inspect the tool scan. If the Actor
+  tool or Dataset reader is absent, use the Apify MCP configurator and check
+  the tool selection.
+- **Authorization fails:** complete OAuth again and confirm the intended Apify
+  account has access to the Actor.
+- **Run is not finished:** continue checking the same Run ID. Do not start a
+  second Run because waiting stopped.
+- **Create response is unclear:** inspect Apify Console before retrying. One
+  client send attempt does not guarantee server-side exactly-once creation.
+- **Empty transcript / `errMsg`:** return the raw Dataset status and error
+  rather than calling the extraction successful.
+- **Truncated result:** ask ChatGPT to retrieve Dataset Items for the same
+  Dataset ID before summarizing.
 
-- Confirm custom connectors are available for your account.
-- Check whether the connector was enabled for the current chat or workspace.
-- Restart the chat after saving connector settings.
+Check the Actor's [current pricing](https://apify.com/apple_yang/tiktok-transcripts-scraper/pricing)
+before running it; this guide makes no free-use or fixed-cost promise.
 
-### Developer Mode unavailable
+## Validation status (checked 2026-10-27)
 
-- Your account or workspace may not have access to the required feature.
-- Use the local examples in this repository or another MCP-capable client.
+ChatGPT Web custom MCP and Codex's native Apify MCP plugin are separate clients;
+evidence for one does not verify the other.
 
-### Tool not listed
+- **ChatGPT Web custom MCP — BLOCKED:** the user was a member of a ChatGPT
+  Business workspace rather than an administrator or owner, and could not
+  create or test a custom MCP app. The ChatGPT Web
+  connector was not configured; its connection, tool discovery, reads, and
+  Actor execution remain unverified.
+- **Codex native Apify MCP — verified for one run:**
+  `fetch-actor-details` returned the fixed Actor details (Actor ID
+  `509El6cODefVZLx2W`); the only required input field was `videoUrl`. One
+  `call-actor` call succeeded, followed by a successful Run query
+  (`SUCCEEDED`) and Dataset read (one item, non-empty `text`, empty `errMsg`).
+  The `call-actor` invocation was not retried, and no second Run was created.
+  This verifies one Codex native MCP
+  execution path, not ChatGPT Web custom MCP.
+- **Cost and prior transport errors:** the call supplied
+  `callOptions.maxItems: 1` (an item-limit setting) and
+  `maxTotalChargeUsd: 0.002` (a separate charge-control request setting). The
+  MCP result did not report the final charge; the charge setting is not a
+  confirmed final bill or independently verified absolute cap. Earlier
+  transport errors were followed by
+  successful read-only calls and this successful execution; their cause is
+  unknown.
+- **Repository offline tests:** exercise language API examples, not either
+  client's connector discovery, authentication, or live reads.
 
-- Confirm the MCP server URL includes
-  `?tools=apple_yang/tiktok-transcripts-scraper`.
-- Reconnect the connector.
-- Ask ChatGPT to list available MCP tools.
-
-### Authorization failed
-
-- Re-run the Apify OAuth flow.
-- Confirm you are signing in with the intended Apify account.
-- If using token-based configuration in another client, confirm the token is
-  valid.
-
-### Actor returns empty transcript
-
-- Try another public TikTok video URL.
-- Ask ChatGPT to return the raw dataset item, including `errMsg`.
-- Treat transcript availability as video-dependent.
-
-### Full dataset output not shown
-
-Use a follow-up prompt:
-
-```text
-Retrieve the full dataset output for the Actor run and show the raw fields before summarizing.
-```
+For a read-only Codex MCP check, call `get-actor-run` for an existing Run and
+pass the Dataset ID returned by that Run to `get-dataset-items`. Do not create
+a new Run just to verify the documentation.
